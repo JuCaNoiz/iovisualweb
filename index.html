@@ -1,0 +1,3614 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>I | O</title> <!-- Updated page title -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"> <!-- Font Awesome for icons -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap'); /* Space Mono for clean, monospaced look */
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            position: relative; /* Needed for fixed/absolute positioning of elements over the canvas */
+            background-color: black; /* Ensure HTML and Body are transparent for PNG-like background */
+        }
+        body {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            display: flex;
+            color: white; /* Default text color for body, overridden where needed */
+        }
+
+        /* Canvas occupies the entire background */
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block; /* Changed to block to make it visible */
+            z-index: 0; /* Ensures it's in the background layer */
+        }
+
+        /* Main application container to manage "pages" */
+        #app-container {
+            position: relative; /* Keep relative for page content */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            z-index: 1; /* Ensures UI elements are above the canvas */
+            /* Add padding to the app-container to prevent content from going under fixed sidebars/header/footer */
+            padding-top: 7rem; /* Approximate header height */
+            padding-bottom: 5rem; /* Approximate footer height */
+            padding-left: 300px; /* Left sidebar width */
+            padding-right: 300px; /* Right sidebar width */
+            box-sizing: border-box; /* Includes padding in dimensions */
+        }
+
+        /* Base style for each "page" (used for Maro/JuCa, not for sidebars) */
+        .page {
+            width: auto; /* Auto width */
+            height: auto; /* Auto height */
+            position: relative; /* Changed to relative inside app-container */
+            flex-grow: 1; /* Allows it to grow to fill available space */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start; /* Align content to the start */
+            transition: opacity 0.3s ease-in-out;
+            box-sizing: border-box;
+            padding-top: 0; /* Remove padding-top, app-container handles it */
+            padding-left: 1rem; /* Small internal padding */
+            padding-right: 1rem; /* Small internal padding */
+            overflow-y: auto; /* Allows scrolling in content pages */
+        }
+        .page.hidden {
+            opacity: 0;
+            pointer-events: none;
+            display: none; /* Hides completely to not occupy space */
+        }
+
+        /* Header container (I | O and description) */
+        .header-container {
+            position: fixed; /* Changed to fixed */
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%); /* Horizontally centered */
+            background-color: transparent; /* Removed solid fill */
+            padding: 1rem 1.5rem; /* Reduced padding */
+            text-align: center;
+            border-bottom-left-radius: 0; /* Removed rounded corners */
+            border-bottom-right-radius: 0; /* Removed rounded corners */
+            box-shadow: none; /* Removed shadow */
+            z-index: 10; /* Ensures it's above the canvas */
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+            max-width: 90%; /* So it's not too wide on large screens */
+            box-sizing: border-box; /* Includes padding in width */
+            width: auto; /* Auto width to fit content */
+            min-width: 300px; /* Minimum width for the header */
+        }
+        .header-container.hidden {
+            transform: translateX(-50%) translateY(-150%); /* Slides up to hide */
+            opacity: 100;
+            pointer-events: none; /* Disables interactions */
+        }
+        .header-container h1 {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            font-size: 3rem; /* Larger title */
+            font-weight: 700; /* Bold for Space Mono */
+            color: white; /* White for the title */
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.1em; /* Spacing for "I | O" */
+            text-transform: uppercase; /* Keep I | O uppercase */
+        }
+        .header-container .description {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            font-size: 1.1rem;
+            color: white; /* Light text for contrast with dark background */
+            margin-bottom: 0.25rem;
+            text-transform: lowercase; /* Default to lowercase */
+        }
+        .header-container .description-sub {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            font-size: 0.9rem;
+            color: white; /* Slightly darker gray for sub-description */
+            margin-bottom: 1.5rem;
+            text-transform: lowercase; /* Default to lowercase */
+        }
+        /* Specific font size for profile page headers */
+        .page .header-container .description {
+            font-size: 1.7rem; /* Increased font size for profile name */
+        }
+        .page .header-container .description-sub {
+            font-size: 1.5rem; /* Increased font size for profile subtitle */
+        }
+        .social-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem; /* Increased space between icons */
+            flex-wrap: wrap;
+        }
+        .social-btn {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            display: flex;
+            align-items: center;
+            justify-content: center; /* Center icon */
+            width: auto; /* Auto width, not fixed */
+            height: auto; /* Auto height, not fixed */
+            padding: 0; /* Remove padding */
+            font-size: 1.8rem; /* Larger icon size */
+            background-color: transparent; /* Transparent background */
+            color: white; /* White icon */
+            border-radius: 0; /* No rounded corners */
+            font-weight: bold; /* Doesn't apply much to icons, but kept */
+            cursor: pointer;
+            transition: transform 0.1s ease; /* Only transform transition */
+            box-shadow: none; /* No shadow */
+            border: none; /* No outline */
+            text-decoration: none; /* Remove link underline */
+            text-transform: lowercase; /* Default to lowercase */
+        }
+        .social-btn:hover {
+            transform: translateY(-2px); /* Lift effect on hover */
+            background-color: transparent; /* Ensure background remains transparent */
+        }
+        .social-btn:active {
+            transform: translateY(0);
+            box-shadow: none; /* Ensure no shadow on click */
+        }
+
+        /* Left sidebar container */
+        .left-sidebar-container {
+            position: fixed; /* Changed to fixed */
+            top: 7rem; /* Starts below the header */
+            left: 0;
+            height: calc(100% - 7rem - 5rem); /* Adjust height to fill remaining space, accounting for footer */
+            width: 300px; /* Fixed width for the side UI */
+            background-color: rgba(0, 0, 0, 0.8); /* Semi-transparent black */
+            z-index: 9; /* Ensures it's above the canvas but below the header */
+            display: flex;
+            flex-direction: column;
+            padding: 0.75rem; /* Reduced padding */
+            box-sizing: border-box; /* Includes padding in width */
+            border-right: 1px solid white; /* Subtle right separator */
+            border-top-right-radius: 0.75rem; /* Rounded corners at the top right */
+            border-bottom-right-radius: 0.75rem; /* Rounded corners at the bottom right */
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+        }
+        .left-sidebar-container.hidden {
+            transform: translateX(-100%); /* Slides left to hide */
+            opacity: 0;
+            pointer-events: none; /* Disables interactions */
+        }
+
+        /* Right sidebar container */
+        .right-sidebar-container {
+            position: fixed; /* Changed to fixed */
+            top: 7rem; /* Starts below the header */
+            right: 0;
+            height: calc(100% - 7rem - 5rem); /* Adjust height to fill remaining space, accounting for footer */
+            width: 300px;
+            background-color: rgba(0, 0, 0, 0.8); /* Semi-transparent black */
+            z-index: 9;
+            display: flex;
+            flex-direction: column;
+            padding: 0.75rem; /* Reduced padding */
+            box-sizing: border-box;
+            border-left: 1px solid white; /* Subtle left separator */
+            border-top-left-radius: 0.75rem; /* Rounded corners at the top left */
+            border-bottom-left-radius: 0.75rem; /* Rounded corners at the bottom left */
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+        }
+        .right-sidebar-container.hidden { /* This class will be added by JS */
+            transform: translateX(100%);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Scrollable controls container */
+        .main-controls-scrollable {
+            flex-grow: 1; /* Occupies remaining space */
+            overflow-y: auto; /* Allows scrolling */
+            padding-right: 0.5rem; /* Space for scrollbar */
+            display: flex;
+            flex-direction: column;
+            gap: 1rem; /* Space between control groups */
+        }
+        /* Scrollbar style */
+        .main-controls-scrollable::-webkit-scrollbar {
+            width: 8px;
+        }
+        .main-controls-scrollable::-webkit-scrollbar-track {
+            background: #2d3748;
+            border-radius: 10px;
+        }
+        .main-controls-scrollable::-webkit-scrollbar-thumb {
+            background: white; /* White scrollbar thumb */
+            border-radius: 10px;
+        }
+        .main-controls-scrollable::-webkit-scrollbar-thumb:hover {
+            background: #cccccc; /* Lighter gray on hover */
+        }
+
+        .control-group-box {
+            background-color: white; /* White background for grouped boxes */
+            padding: 0.6rem; /* Reduced padding */
+            border-radius: 0.6rem;
+            box-shadow: none; /* No shadow */
+            border: 1px solid black; /* Black border for definition */
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem; /* Reduced space between elements within the group */
+        }
+        .control-group-box h3 {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            font-size: 0.85rem; /* Smaller group title */
+            font-weight: bold;
+            margin-bottom: 0.2rem;
+            color: black; /* Dark text for titles */
+            text-transform: lowercase; /* Default to lowercase */
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem; /* Smaller space in slider groups */
+        }
+        .control-group label {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            font-size: 0.75rem; /* Smaller label size */
+            color: black; /* Dark text for labels */
+            text-transform: lowercase; /* Default to lowercase */
+        }
+        .control-group input[type="range"] {
+            width: 100%; /* Occupies full available width */
+            -webkit-appearance: none;
+            height: 5px; /* Thinner slider */
+            background: black; /* Black track */
+            border-radius: 3px;
+            outline: none;
+            opacity: 1; /* Fully opaque */
+            -webkit-transition: .2s;
+            transition: opacity .2s;
+        }
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px; /* Smaller thumb */
+            height: 14px;
+            border-radius: 50%;
+            background: white; /* White thumb */
+            cursor: pointer;
+            box-shadow: 0 0 3px rgba(0, 0, 0, 0.5); /* Black shadow */
+        }
+        .control-group input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: white; /* White thumb */
+            cursor: pointer;
+            box-shadow: 0 0 3px rgba(0, 0, 0, 0.5); /* Black shadow */
+        }
+        /* Style for selectors that are also buttons */
+        .control-group select.btn {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            padding: 0.4rem 0.6rem; /* Adjusted padding */
+            font-size: 0.8rem; /* Adjusted font size */
+            text-align: left; /* Align text to the left */
+            -webkit-appearance: none; /* Remove native style in Webkit */
+            -moz-appearance: none; /* Remove native style in Firefox */
+            appearance: none; /* Remove native style */
+            background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23000000%22%20d%3D%22M287%2C197.3L159.2%2C69.5c-3.2-3.2-8.4-3.2-11.6%2C0L5.4%2C197.3c-3.2%2C3.2-3.2%2C8.4%2C0%2C11.6l11.6%2C11.6c3.2%2C3.2%2C8.4%2C3.2%2C11.6%2C0l120.4-120.4l120.4%2C120.4c3.2%2C3.2%2C8.4%2C3.2%2C11.6%2C0l11.6-11.6C290.2%2C205.7%2C290.2%2C200.5%2C287%2C197.3z%22%2F%3E%3C%2Fsvg%3E'); /* Black arrow */
+            background-repeat: no-repeat;
+            background-position: right 0.6rem center; /* Adjusted arrow position */
+            background-size: 0.5em auto; /* Smaller arrow size */
+            background-color: white; /* White background */
+            color: black; /* Black text */
+            border: 1px solid black; /* Black border */
+            text-transform: lowercase; /* Default to lowercase */
+        }
+
+        /* General style for all buttons */
+        .btn {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            background: white; /* White background */
+            color: black; /* Black text */
+            padding: 0.6rem 1rem; /* Reduced padding */
+            border-radius: 0.6rem; /* Smaller borders */
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out; /* Smooth transition for all properties */
+            box-shadow: none; /* Removed shadow */
+            border: 1px solid black; /* Added border */
+            width: 100%; /* Ensures buttons within sections occupy full width */
+            box-sizing: border-box;
+            text-transform: lowercase; /* Default to lowercase */
+            letter-spacing: 0.05em; /* Letter spacing */
+        }
+        .btn:hover {
+            background: #e0e0e0; /* Lighter gray on hover */
+            transform: translateY(-2px); /* More pronounced lift effect */
+            box-shadow: none; /* Removed shadow on hover */
+        }
+        .btn:active {
+            transform: translateY(0);
+            box-shadow: none; /* Removed shadow on click */
+            background: #cccccc; /* Darker gray on click */
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+        }
+        .file-input-wrapper input[type=file] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+        .message-box {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white; /* White message box */
+            color: black; /* Black text */
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+        .message-box button {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            background-color: black; /* Black button */
+            color: white; /* White text */
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            border: none;
+            text-transform: lowercase; /* Default to lowercase */
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: 1.25rem;
+            height: 1.25rem;
+            accent-color: black; /* Black checkbox */
+        }
+        .color-palette {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .color-input-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .color-input-group input[type="color"] {
+            width: 40px;
+            height: 25px;
+            border: none;
+            padding: 0;
+            background: none;
+            cursor: pointer;
+            border-radius: 0.25rem;
+            overflow: hidden;
+        }
+        .color-input-group input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        .color-input-group input[type="color"]::-webkit-color-swatch {
+            border: none;
+            border-radius: 0.25rem;
+        }
+        /* Credits and profile buttons */
+        .footer-container {
+            position: fixed; /* Changed to fixed */
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: auto; /* Auto width to fit content */
+            min-width: 300px; /* Minimum width for the footer */
+            text-align: center;
+            padding: 1rem 1.5rem; /* Match header padding */
+            background-color: transparent; /* Transparent background */
+            border-top-left-radius: 0; /* No rounded corners */
+            border-top-right-radius: 0; /* No rounded corners */
+            box-shadow: none; /* No shadow */
+            z-index: 10;
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+            box-sizing: border-box;
+        }
+        .footer-container.hidden {
+            transform: translateX(-50%) translateY(150%); /* Slides down to hide */
+            opacity: 0;
+            pointer-events: none;
+        }
+        .footer-text {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            font-size: 0.9rem;
+            color: white; /* White text */
+            margin-bottom: 0.75rem;
+            text-transform: lowercase; /* Default to lowercase */
+        }
+        .profile-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .profile-btn {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            background-color: transparent; /* Transparent background */
+            color: white; /* White text */
+            padding: 0; /* No padding */
+            border-radius: 0; /* No borders */
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+            box-shadow: none; /* No shadow */
+            border: none; /* No border */
+            font-size: 1.2rem; /* Font size to look like social media icon */
+            text-transform: lowercase; /* Default to lowercase */
+        }
+        .profile-btn:hover {
+            transform: translateY(-2px);
+            background-color: transparent;
+        }
+        .profile-btn:active {
+            transform: translateY(0);
+            box-shadow: none;
+        }
+
+        #audioDebugInfo {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            position: fixed; /* Changed to fixed */
+            top: 8rem; /* Below the header */
+            right: 310px; /* To the left of the right sidebar */
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            font-size: 0.8rem;
+            z-index: 100;
+            display: none; /* Hidden by default, shown when audio is active */
+            text-transform: lowercase; /* Default to lowercase */
+        }
+
+        /* Styles for profile pages */
+        .profile-page-content {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            background-color: rgba(255, 255, 255, 0.1); /* Transparent white background */
+            padding: 2rem;
+            border-radius: 0; /* Removed border-radius */
+            box-shadow: none; /* Removed box-shadow */
+            max-width: 96%; /* Occupy almost full width */
+            width: 96%; /* Occupy almost full width */
+            margin-top: 7rem; /* Slightly lower margin-top */
+            text-align: left;
+            overflow-y: auto;
+            flex-grow: 1;
+            box-sizing: border-box;
+            display: flex; /* Use flexbox for content */
+            flex-direction: column; /* Content in column */
+            gap: 1rem; /* Space between elements */
+            color: white; /* White text */
+        }
+        .profile-page-content h2 {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            font-size: 2rem;
+            font-weight: bold;
+            color: white; /* White text */
+            margin-bottom: 1rem;
+            text-align: center;
+            text-transform: lowercase; /* Default to lowercase */
+        }
+        .profile-page-content h3 {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white; /* White text */
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            text-transform: lowercase; /* Default to lowercase */
+        }
+        .profile-page-content p, .profile-page-content ul {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            font-size: 1rem;
+            line-height: 2; /* Increased line-height */
+            color: white; /* White text */
+            margin-bottom: 1rem;
+            text-transform: lowercase; /* Default to lowercase */
+        }
+        .profile-page-content ul {
+            list-style: disc;
+            margin-left: 1.5rem;
+        }
+        .profile-page-content a {
+            color: #ccc; /* Lighter gray for links */
+            text-decoration: underline;
+            text-transform: lowercase;
+        }
+        .profile-page-content .project-image {
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.75rem;
+            margin-top: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        .back-btn-container {
+            width: 100%;
+            text-align: center;
+            margin-top: 2rem;
+            flex-shrink: 0;
+        }
+        .back-btn {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            background-color: black; /* Black button */
+            color: white; /* White text */
+            padding: 0.8rem 1.8rem;
+            border-radius: 0.75rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
+            border: none;
+            text-transform: lowercase; /* Default to lowercase */
+        }
+        .back-btn:hover {
+            background-color: #333; /* Darker black on hover */
+            transform: translateY(-2px);
+        }
+        .back-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Specific styles for MIDI section (inside left-sidebar-container) */
+        .midi-control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .midi-control-group label {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            font-size: 0.9rem;
+            color: white; /* White text on dark sidebar */
+            text-transform: lowercase; /* Default to lowercase */
+        }
+        .midi-control-group select, .midi-control-group input[type="number"] {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            background-color: white; /* White background */
+            border: 1px solid black; /* Black border */
+            color: black; /* Black text */
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            font-size: 0.9rem;
+            text-transform: lowercase; /* Default to lowercase */
+        }
+        .midi-control-group button {
+            width: auto;
+            align-self: flex-start;
+        }
+        .midi-monitor {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            background-color: #f0f0f0; /* Light gray for monitor */
+            border: 1px solid black; /* Black border */
+            padding: 0.6rem; /* Reduced padding */
+            border-radius: 0.6rem;
+            font-size: 0.75rem; /* Reduced font size */
+            color: black; /* Black text */
+            height: 80px; /* Reduced height */
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            text-transform: lowercase; /* Default to lowercase */
+        }
+        .midi-mappings-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        .midi-mappings-table th, .midi-mappings-table td {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            border: 1px solid black; /* Black border */
+            padding: 0.4rem; /* Reduced padding */
+            text-align: left;
+            font-size: 0.8rem; /* Reduced font size */
+            text-transform: lowercase; /* Default to lowercase */
+        }
+        .midi-mappings-table th {
+            background-color: black; /* Black header */
+            color: white; /* White text */
+        }
+        .midi-mappings-table td button {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            padding: 0.2rem 0.4rem; /* Reduced button padding */
+            font-size: 0.7rem; /* Reduced button font size */
+            border-radius: 0.5rem;
+            background-color: black; /* Black for delete */
+            color: white; /* White text */
+            text-transform: lowercase; /* Default to lowercase */
+        }
+        .midi-learn-status {
+            font-family: 'Space Mono', monospace; /* Applied new font */
+            background-color: black; /* Black background */
+            color: white; /* White text */
+            padding: 0.75rem;
+            border-radius: 0.75rem;
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            display: none; /* Hidden by default */
+            text-transform: lowercase; /* Default to lowercase */
+        }
+        .midi-learn-status.active {
+            display: block;
+        }
+
+        /* Class to highlight controls when MIDI learn mode is active */
+        .learn-mode-active .mappable-control {
+            border: 2px dashed white; /* Dashed white border */
+            cursor: crosshair; /* Crosshair cursor to indicate mapping */
+        }
+        .mappable-control:hover {
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.7); /* Black shadow on hover */
+        }
+    </style>
+</head>
+<body>
+    <canvas id="visualCanvas"></canvas>
+
+    <div id="app-container">
+        <!-- Main Visualizer Page (always active, sidebars overlap) -->
+        <div id="mainVisualizerPage" class="page active">
+            <div class="header-container" id="headerContainerMain">
+                <h1>I | O</h1>
+                <p class="description">"signal in, chaos out"</p>
+                <p class="description-sub">música experimental + visuales generativos en tiempo real</p>
+                <div class="social-buttons">
+                    <a href="https://www.tiktok.com/@juca.noiz" target="_blank" class="social-btn">
+                        <i class="fab fa-tiktok"></i>
+                    </a>
+                    <a href="https://www.instagram.com/jucanoiz/" target="_blank" class="social-btn">
+                        <i class="fab fa-instagram"></i>
+                    </a>
+                    <a href="https://www.facebook.com/juca.noiz.2025" target="_blank" class="social-btn">
+                        <i class="fab fa-facebook-f"></i>
+                    </a>
+                    <a href="https://github.com/JuCaNoiz" target="_blank" class="social-btn">
+                        <i class="fab fa-github"></i>
+                    </a>
+                </div>
+            </div>
+
+            <div class="left-sidebar-container" id="leftSidebarContainer">
+                <div class="main-controls-scrollable">
+                    <div class="control-group-box">
+                        <h3>modo visual</h3>
+                        <div class="control-group">
+                            <label for="visualMode">seleccionar modo:</label>
+                            <select id="visualMode" class="btn mappable-control" data-midi-target="visualMode">
+                                <option value="spheres">esferas pulsantes</option>
+                                <option value="particles">partículas reactivas</option>
+                                <option value="waves">ondas de color</option>
+                                <option value="cubes">cubos giratorios</option>
+                                <option value="audioBars">barras de audio</option>
+                                <option value="torus">toroides múltiples</option>
+                                <option value="torusKnot">nudo toroide</option>
+                                <option value="dodecahedron">dodecaedros múltiples</option>
+                                <option value="icosahedron">icosaedros múltiples</option>
+                                <option value="octahedron">octaedros múltiples</option>
+                                <option value="cone">conos múltiples</option>
+                                <option value="cylinder">cilindros múltiples</option>
+                                <option value="ring">anillos múltiples</option>
+                                <option value="tetrahedron">tetraedros múltiples</option>
+                                <option value="multiTorus">multi-toroides</option>
+                                <option value="gyroscope1">giroscopio de anillos</option>
+                                <option value="gyroscope2">giroscopio de esferas anidadas</option>
+                                <option value="gyroscope3">giroscopio de toroides intersectados</option>
+                                <option value="fractalNoise">ruido fractal</option>
+                                <option value="hydraFuego">hydra fuego cósmico</option>
+                                <option value="hydraGlitch">hydra glitch dimension</option> <!-- NEW HYDRA OPTION -->
+                                <option value="hydraTunel">hydra túnel espacial</option> <!-- NEW HYDRA OPTION -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="control-group-box">
+                        <h3>controles de visualización</h3>
+                        <div class="control-group">
+                            <label for="colorSpeed">vel. color:</label>
+                            <input type="range" id="colorSpeed" min="0.01" max="0.5" step="0.01" value="0.1" class="mappable-control" data-midi-target="colorSpeed">
+                        </div>
+                        <div class="control-group">
+                            <label for="amplitudeSensitivity">sens. audio general:</label>
+                            <input type="range" id="amplitudeSensitivity" min="0.1" max="5.0" step="0.1" value="1.0" class="mappable-control" data-midi-target="amplitudeSensitivity">
+                        </div>
+                        <div class="control-group">
+                            <label for="audioReactionThreshold">umbral audio (db):</label>
+                            <input type="range" id="audioReactionThreshold" min="0" max="255" step="1" value="45" class="mappable-control" data-midi-target="audioReactionThreshold">
+                        </div>
+                        <div class="control-group">
+                            <label for="bassSensitivity">sens. graves:</label>
+                            <input type="range" id="bassSensitivity" min="0.1" max="5.0" step="0.1" value="1.0" class="mappable-control" data-midi-target="bassSensitivity">
+                        </div>
+                        <div class="control-group">
+                            <label for="midSensitivity">sens. medios:</label>
+                            <input type="range" id="midSensitivity" min="0.1" max="5.0" step="0.1" value="1.0" class="mappable-control" data-midi-target="midSensitivity">
+                        </div>
+                        <div class="control-group">
+                            <label for="trebleSensitivity">sens. agudos:</label>
+                            <input type="range" id="trebleSensitivity" min="0.1" max="5.0" step="0.1" value="1.0" class="mappable-control" data-midi-target="trebleSensitivity">
+                        </div>
+                        <div class="control-group">
+                            <label for="layerOpacity">opacidad capa:</label>
+                            <input type="range" id="layerOpacity" min="0.1" max="1.0" step="0.05" value="1.0" class="mappable-control" data-midi-target="layerOpacity">
+                        </div>
+                        <div class="control-group">
+                            <label for="shapeScale">escala global:</label>
+                            <input type="range" id="shapeScale" min="0.1" max="2.0" step="0.05" value="1.0" class="mappable-control" data-midi-target="shapeScale">
+                        </div>
+                        <div class="control-group">
+                            <label for="deformationLevel">nivel deformación:</label>
+                            <input type="range" id="deformationLevel" min="0.0" max="1.0" step="0.01" value="0.5" class="mappable-control" data-midi-target="deformationLevel">
+                        </div>
+                        <div class="control-group">
+                            <label for="materialMode">modo material:</label>
+                            <input type="range" id="materialMode" min="0" max="2" step="1" value="0" class="mappable-control" data-midi-target="materialMode">
+                        </div>
+                    </div>
+
+                    <div class="control-group-box">
+                        <h3>opciones de color y más</h3>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="grayscaleToggle" class="mappable-control" data-midi-target="grayscaleToggle">
+                            <label for="grayscaleToggle">escala de grises figuras</label>
+                        </div>
+
+                        <div class="color-palette">
+                            <label>colores custom:</label>
+                            <div class="color-input-group">
+                                <input type="color" id="color1" value="#FF0000" class="mappable-control" data-midi-target="color1">
+                                <input type="color" id="color2" value="#00FF00" class="mappable-control" data-midi-target="color2">
+                                <input type="color" id="color3" value="#0000FF" class="mappable-control" data-midi-target="color3">
+                            </div>
+                            <div class="color-input-group">
+                                <input type="color" id="color4" value="#FFFF00" class="mappable-control" data-midi-target="color4">
+                                <input type="color" id="color5" value="#FF00FF" class="mappable-control" data-midi-target="color5">
+                                <input type="color" id="color6" value="#00FFFF" class="mappable-control" data-midi-target="color6">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="control-group-box">
+                        <h3>dispositivos de entrada</h3>
+                        <div class="control-group">
+                            <label for="audioInputSelect">entrada de audio:</label>
+                            <select id="audioInputSelect" class="btn mappable-control" data-midi-target="audioInputSelect"></select>
+                        </div>
+                        <div class="control-group">
+                            <label for="cameraSelect">seleccionar cámara:</label>
+                            <select id="cameraSelect" class="btn mappable-control" data-midi-target="cameraSelect"></select>
+                        </div>
+                    </div>
+
+                    <div class="control-group-box actions-box"> <!-- Separate Actions section -->
+                        <h3>acciones</h3>
+                        <button id="toggleAudio" class="btn mappable-control" data-midi-target="toggleAudio">activar audio</button>
+                        <div class="file-input-wrapper">
+                            <button class="btn">cargar imagen</button>
+                            <input type="file" id="imageUpload" accept="image/*" multiple>
+                        </div>
+                        <button id="clearImageBtn" class="btn mappable-control" data-midi-target="clearImageBtn">borrar imagen de fondo</button>
+                        <button id="fullscreenBtn" class="btn mappable-control" data-midi-target="fullscreenBtn">pantalla completa</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Sidebar for Filters and MIDI -->
+            <div class="right-sidebar-container" id="rightSidebarContainer">
+                <div class="main-controls-scrollable">
+                    <div class="control-group-box">
+                        <h3>filtros de imagen de fondo</h3>
+                        <div class="color-input-group">
+                            <label for="chromaKeyColor">color chroma key:</label>
+                            <input type="color" id="chromaKeyColor" value="#00FF00" class="mappable-control" data-midi-target="chromaKeyColor">
+                        </div>
+                        <div class="control-group">
+                            <label for="chromaKeyThreshold">umbral chroma key:</label>
+                            <input type="range" id="chromaKeyThreshold" min="0.0" max="0.5" step="0.01" value="0.001" class="mappable-control" data-midi-target="chromaKeyThreshold">
+                        </div>
+                        <div class="control-group">
+                            <label for="backgroundScaleSlider">escala de fondo:</label>
+                            <input type="range" id="backgroundScaleSlider" min="0.5" max="5.0" step="0.1" value="1.5" class="mappable-control" data-midi-target="backgroundScaleFactor">
+                        </div>
+                        <!-- NEW IMAGE EFFECT SLIDERS -->
+                        <div class="control-group">
+                            <label for="hueRotateSlider">rotación de tono:</label>
+                            <input type="range" id="hueRotateSlider" min="0" max="360" step="1" value="0" class="mappable-control" data-midi-target="hueRotate">
+                        </div>
+                        <div class="control-group">
+                            <label for="saturationSlider">saturación:</label>
+                            <input type="range" id="saturationSlider" min="0" max="200" step="1" value="100" class="mappable-control" data-midi-target="saturation">
+                        </div>
+                        <div class="control-group">
+                            <label for="vignetteSlider">viñeta:</label>
+                            <input type="range" id="vignetteSlider" min="0" max="100" step="1" value="0" class="mappable-control" data-midi-target="vignette">
+                        </div>
+                        <div class="control-group">
+                            <label for="posterizeSlider">posterizar:</label>
+                            <input type="range" id="posterizeSlider" min="2" max="255" step="1" value="255" class="mappable-control" data-midi-target="posterize">
+                        </div>
+                        <div class="control-group">
+                            <label for="sharpenSlider">nitidez:</label>
+                            <input type="range" id="sharpenSlider" min="0" max="10" step="0.1" value="0" class="mappable-control" data-midi-target="sharpen">
+                        </div>
+                        <div class="control-group">
+                            <label for="scanlineSlider">líneas de escaneo:</label>
+                            <input type="range" id="scanlineSlider" min="0" max="100" step="1" value="0" class="mappable-control" data-midi-target="scanline">
+                        </div>
+                    </div>
+
+                    <div class="control-group-box">
+                        <h3>controles de cámara</h3>
+                        <button id="startCameraBtn" class="btn mappable-control" data-midi-target="startCameraBtn">activar cámara</button>
+                        <button id="stopCameraBtn" class="btn mappable-control" data-midi-target="stopCameraBtn">detener cámara</button>
+                        <div class="control-group">
+                            <label for="cameraFilterModeSelect">filtro base:</label>
+                            <select id="cameraFilterModeSelect" class="btn mappable-control" data-midi-target="cameraFilterModeSelect">
+                                <option value="0">ninguno</option>
+                                <option value="1">escala de grises</option>
+                                <option value="2">invertir colores</option>
+                                <option value="3">sepia</option>
+                                <option value="4">pixelado</option>
+                                <option value="5">desenfoque</option>
+                                <option value="6">solo bordes</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label for="cameraNoiseSlider">ruido bordes:</label>
+                            <input type="range" id="cameraNoiseSlider" min="0" max="100" value="0" class="mappable-control" data-midi-target="cameraNoiseAmount">
+                        </div>
+                        <div class="control-group">
+                            <label for="cameraEdgeSensitivitySlider">sensibilidad bordes:</label>
+                            <input type="range" id="cameraEdgeSensitivitySlider" min="0" max="100" value="50" class="mappable-control" data-midi-target="cameraEdgeSensitivity">
+                        </div>
+                        <div class="control-group">
+                            <label for="cameraBrightnessSlider">brillo:</label>
+                            <input type="range" id="cameraBrightnessSlider" min="-100" max="100" value="0" class="mappable-control" data-midi-target="cameraBrightness">
+                        </div>
+                        <div class="control-group">
+                            <label for="cameraContrastSlider">contraste:</label>
+                            <input type="range" id="cameraContrastSlider" min="0" max="100" value="50" class="mappable-control" data-midi-target="cameraContrast">
+                        </div>
+                        <div class="control-group">
+                            <label for="cameraPixelateSizeSlider">tamaño pixel:</label>
+                            <input type="range" id="cameraPixelateSizeSlider" min="1" max="50" value="1" class="mappable-control" data-midi-target="cameraPixelateSize">
+                        </div>
+                        <div class="control-group">
+                            <label for="cameraBlurAmountSlider">intensidad desenfoque:</label>
+                            <input type="range" id="cameraBlurAmountSlider" min="0" max="10" value="0" class="mappable-control" data-midi-target="cameraBlurAmount">
+                        </div>
+                        <div class="control-group">
+                            <label for="cameraMaterialSelect">tinte bordes:</label>
+                            <select id="cameraMaterialSelect" class="btn mappable-control" data-midi-target="cameraMaterialColor">
+                                <option value="none">normal</option>
+                                <option value="mercury">mercurio</option>
+                                <option value="gold">oro</option>
+                                <option value="lava">lava</option>
+                                <option value="water">agua</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="control-group-box">
+                        <h3>control midi</h3>
+                        <div class="midi-control-group">
+                            <label for="midiInputSelect">entrada midi:</label>
+                            <select id="midiInputSelect"></select>
+                        </div>
+                        <div class="midi-control-group">
+                            <label for="midiOutputSelect">salida midi (futuro):</label>
+                            <select id="midiOutputSelect"></select>
+                        </div>
+                        <div class="control-group">
+                            <label for="midiChannelInput">canal midi (1-16):</label>
+                            <input type="number" id="midiChannelInput" min="1" max="16" value="1">
+                        </div>
+
+                        <h3>modo de aprendizaje midi</h3>
+                        <div class="midi-control-group">
+                            <button id="startMidiLearnBtn" class="btn">iniciar aprendizaje midi</button>
+                            <button id="stopMidiLearnBtn" class="btn" style="display: none;">detener aprendizaje midi</button>
+                        </div>
+                        <p id="midiLearnStatus" class="midi-learn-status">haz clic en un control visual para mapearlo.</p>
+
+                        <h3>mapeos actuales</h3>
+                        <button id="clearMidiMappingsBtn" class="btn">borrar todos los mapeos</button>
+                        <table class="midi-mappings-table">
+                            <thead>
+                                <tr>
+                                    <th>tipo midi</th>
+                                    <th>canal</th>
+                                    <th>número</th>
+                                    <th>control visual</th>
+                                    <th>acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="midiMappingsTableBody">
+                                <!-- Mapeos will be inserted here -->
+                            </tbody>
+                        </table>
+
+                        <h3>monitor midi</h3>
+                        <div id="midiMonitor" class="midi-monitor"></div>
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="footer-container" id="footerContainer">
+                <p class="footer-text">creado por juca noiz, para la banda que le gusta la música y los visuales | aural flux®</p>
+                <div class="profile-buttons">
+                    <button id="jucaProfileBtn" class="profile-btn">JuCa Noiz</button>
+                    <button id="maroProfileBtn" class="profile-btn">Maro Valdivia</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- JuCa Noiz Page -->
+        <div id="jucaPage" class="page hidden">
+            <div class="header-container">
+                <h1>I | O</h1>
+                <p class="description">JuCa Noiz</p>
+                <p class="description-sub">ingeniero y diseñador de experiencias</p>
+            </div>
+            <div class="profile-page-content">
+                <h2>perfil de JuCa Noiz</h2>
+                <h3>biografía</h3>
+                <p>JuCa Noiz es un ingeniero y diseñador de experiencias, especializado en la creación de paisajes sonoros y la integración de audio con visuales interactivos. su enfoque se centra en cómo el sonido puede moldear y ser moldeado por entornos visuales, explorando la sinestesia digital.</p>
+                <p>con una profunda comprensión de la acústica y el procesamiento de señales, JuCa aporta una perspectiva técnica y artística a proyectos que buscan fusionar la música experimental con la interactividad visual, creando atmósferas envolventes y multisensoriales.</p>
+
+                <h3>proyectos destacados</h3>
+                <ul>
+                    <li>I | O Web: una plataforma interactiva para la generación de visuales en tiempo real, donde el sonido y los controles MIDI dan vida a experiencias inmersivas.</li>
+                    <li>Participación como sintetista en Tech-Noch: explorando la fusión de la cultura digital con las raíces sonoras más profundas, ¡creando un desmadre sonoro y visual que te vuela la cabeza!</li>
+                    <li>"Resonance Chambers": una serie de experimentos sonoros que utilizan la resonancia de espacios físicos para generar visuales reactivos.</li>
+                    <li>"Glitch Garden": un entorno interactivo donde los sonidos de la naturaleza son procesados y visualizados como fallas digitales.</li>
+                    <li>"Sonic Sculptures": colaboraciones con escultores para crear piezas que emiten y reaccionan a estímulos sonoros.</li>
+                </ul>
+
+                <h3>filosofía artística</h3>
+                <p>JuCa cree que el sonido es una fuerza fundamental en la experiencia humana, capaz de evocar emociones y transformar la percepción. su trabajo busca amplificar esta fuerza, utilizando la tecnología para revelar la belleza oculta en el ruido y la armonía, creando diálogos entre lo audible y lo visible.</p>
+            </div>
+            <div class="back-btn-container">
+                <button class="back-btn" data-target-page="mainVisualizerPage">volver</button>
+            </div>
+        </div>
+
+        <!-- Maro Valdivia Page -->
+        <div id="maroPage" class="page hidden">
+            <div class="header-container">
+                <h1>I | O</h1>
+                <p class="description">Maro Valdivia</p>
+                <p class="description-sub">artista audiovisual</p>
+            </div>
+            <div class="profile-page-content">
+                <h2>perfil de Maro Valdivia</h2>
+                <h3>biografía</h3>
+                <p>originario de Ciudad de México, Omar Valdivia es un artista multidisciplinario que fusiona elementos tradicionales y contemporáneos para crear experiencias sonoras y visuales únicas. su obra trasciende los límites convencionales, combinando diversos géneros y estilos para ofrecer composiciones innovadoras y cautivadoras. su habilidad para integrar diferentes disciplinas lo convierte en un creador de experiencias únicas, reflejando su profunda comprensión del arte como un medio en constante evolución.</p>
+
+                <h3>Tech-Noch</h3>
+                <p>Tech-Noch es un proyecto que explora la cultura y la tecnología a través de herramientas como el videomapping, la música y la creación digital, para generar experiencias visuales y auditivas inmersivas. Tech-Noch sirve como un puente entre el pasado y el futuro, ofreciendo una experiencia que vincula a las personas con sus raíces culturales, al tiempo que exploran las infinitas posibilidades de la tecnología.</p>
+
+                <h3>apariciones destacadas</h3>
+                <ul>
+                    <li>Cryptofest, Tulúm, Q. Roo: videomapping con video proyecciones de colaboradores de Arteknov, sobre hongo de palma y lasers proyectados en lago. colaboración con Tulaaart, Arteknov.</li>
+                    <li>Festival Prisma, Mérida, Yucatán: participación con video proyecciones como apoyo para la carrera de diseño y nuevos medios en el Gran Museo del Mundo Maya. colaboración con Universidad Anáhuac Mayab, Tulaaart.</li>
+                    <li>Festival Naltik, Zacatlán, Puebla: colección de templos y pirámides proyectados con laser en las nubes sobrepuesto a la ciudad de Zacatlán de las Manzanas. videomapping al templo del "Señor del Cable" de la serie "Bandalismo Espiritual". colaboración con Transductor, Black3Labs.</li>
+                    <li>Panteon MX, CDMX, MX: videomapping para inauguración de exposición del STP Crew. colaboración con Transductor, N30, STP Crew, Maldita Carmen, Meme.ZP.3KTRA, Fabs, Alibe, Nomoneynohoney.</li>
+                    <li>Nektar, CDMX, MX y Toluca, Edo. Mex.: pre-lanzamiento de bebida Purple Haze de la marca Nektar, fiesta para influencers y artistas. colaboración con Sinestechnia, NEUG, WTS, Noise Diva.</li>
+                    <li>Festival Data Uotan, CDMX, MX: participación con videomapping interactivo colaboración de obra de Ricardo Santos "Cocodrilos" para Festival Data Uotan patrocinado por la Embajada de Paises Bajos en México. colaboración con Ricardo Santos, NEUG, Uncloud, Alejandra Metztli.</li>
+                    <li>"Abundance", CDMX, MX: participación para RE:INTEGRA. modelo: Michelle Favreau, artista de pintura: Bella Schauer, fotógrafo: Summer Hokulani, proyección: Tech-Noch.</li>
+                </ul>
+                
+                <h3>contacto</h3>
+                <p>web: <a href="https://www.omargarciavaldivia.com" target="_blank" style="color: white; text-decoration: underline;">www.omargarciavaldivia.com</a></p>
+                <p>instagram: <a href="https://www.instagram.com/omar_valdivia" target="_blank" style="color: white; text-decoration: underline;">@omar_valdivia</a> / <a href="https://www.instagram.com/tech_noch" target="_blank" style="color: white; text-decoration: underline;">@tech_noch</a></p>
+                <p>email: <a href="mailto:OMAR.G.VALDIVIA@GMAIL.COM" style="color: white; text-decoration: underline;">omar.g.valdivia@gmail.com</a></p>
+            </div>
+            <div class="back-btn-container">
+                <button class="back-btn" data-target-page="mainVisualizerPage">volver</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="audioDebugInfo">
+        amplitud audio: <span id="currentAmplitude">0</span><br>
+        nivel reacción: <span id="normalizedReaction">0.00</span><br>
+        graves: <span id="bassAmplitude">0</span><br>
+        medios: <span id="midAmplitude">0</span><br>
+        agudos: <span id="trebleAmplitude">0</span>
+    </div>
+
+    <div id="messageBox" class="message-box">
+        <p id="messageText"></p>
+        <button id="messageBoxOk">ok</button>
+    </div>
+
+    <script type="module">
+        // Global variables for Firebase (will be initialized if persistence is needed)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Three.js variables for main visualizer
+        let scene, camera, renderer;
+        let audioContext, analyser, microphone, dataArray;
+        let currentVisualMode = 'spheres';
+        let visualObjects = []; // To manage objects for each visual mode
+        let particleBurstSystem = null; // Particle system for the "burst"
+
+        // Background layers (camera related variables removed)
+        let imagePlane = null;
+        let videoFeed = null; // Reference to the video element for camera feed
+        let videoTexture = null; // Three.js texture for the video feed
+        let isCameraActive = false; // Flag to indicate if camera is active
+        let currentCameraStream = null; // Global reference to the camera media stream
+
+        // Variables for image carousel
+        let loadedImageTextures = [];
+        let currentImageIndex = -1;
+        let imageChangeInterval = null;
+        const IMAGE_CHANGE_INTERVAL_MS = 2500; // 2.5 seconds
+
+        // MIDI variables
+        let midiAccess = null;
+        let midiInputs = new Map();
+        let midiOutputs = new Map();
+        let selectedMidiInput = null;
+        let selectedMidiChannel = 1; // Default MIDI channel
+        let isLearningMidi = false;
+        let learnTargetElement = null; // The visualizer control element being mapped
+        let midiMappings = []; // Array to store {midiType, midiChannel, midiNumber, targetElementId, targetProperty, minVal, maxVal, step}
+
+        // Control parameters for main visualizer
+        const params = {
+            colorSpeed: 0.1,
+            amplitudeSensitivity: 1.0,
+            audioReactionThreshold: 45, // Audio threshold for reaction (0-255)
+            bassSensitivity: 1.0, // New sensitivity for bass
+            midSensitivity: 1.0,  // New sensitivity for mids
+            trebleSensitivity: 1.0, // New sensitivity for trebles
+            layerOpacity: 1.0,
+            shapeScale: 1.0,
+            deformationLevel: 0.5,
+            materialMode: 0, // 0: Solid, 1: Wireframe, 2: Points
+            grayscale: false, // For figures
+            customColors: ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF'],
+
+            // Background parameters (general for image/camera)
+            chromaKeyColor: '#00FF00', // Chroma key color (green by default), only for images
+            chromaKeyThreshold: 0.001,   // Chroma key tolerance threshold (very low initial value), only for images
+            backgroundScaleFactor: 1.5, // Background image/camera scale factor
+
+            // NEW IMAGE EFFECTS
+            hueRotate: 0.0, // 0-360 degrees
+            saturation: 1.0, // 0.0 (grayscale) to 2.0 (super saturated), 1.0 is normal
+            vignette: 0.0, // 0.0 (none) to 1.0 (full vignette)
+            posterize: 255.0, // 2 to 255 (number of levels per color channel)
+            sharpen: 0.0, // 0.0 (none) to 10.0 (very sharp)
+            scanline: 0.0, // 0.0 (none) to 1.0 (full scanlines)
+
+            // Camera specific parameters (applied to background shader when camera is active)
+            cameraFilterMode: 0, // 0:none, 1:grayscale, 2:invert, 3:sepia, 4:pixelate, 5:blur, 6:edge-only
+            cameraNoiseAmount: 0.0, // 0.0 - 1.0
+            cameraEdgeSensitivity: 0.5, // 0.0 - 1.0 (mapped from 0-100 slider)
+            cameraBrightness: 0.0, // -1.0 - 1.0 (mapped from -100-100 slider)
+            cameraContrast: 1.0, // 0.0 - 2.0 (mapped from 0-100 slider, 1.0 is neutral)
+            cameraPixelateSize: 1.0, // 1.0 - 50.0 (mapped from 1-50 slider)
+            cameraBlurAmount: 0.0, // 0.0 - 10.0 (mapped from 0-10 slider)
+            cameraMaterialColor: new THREE.Color(0xFFFFFF), // White by default for edge tinting
+        };
+
+        // Material colors for background edges
+        const backgroundMaterialColors = {
+            none: new THREE.Color(0xFFFFFF),
+            mercury: new THREE.Color(0xA0B0C0),
+            gold: new THREE.Color(0xFFD700),
+            lava: new THREE.Color(0xFF4500),
+            water: new THREE.Color(0x00BFFF)
+        };
+
+        // DOM element references for main visualizer
+        const appContainer = document.getElementById('app-container');
+        const mainVisualizerPage = document.getElementById('mainVisualizerPage');
+        const headerContainerMain = document.getElementById('headerContainerMain');
+        const leftSidebarContainer = document.getElementById('leftSidebarContainer');
+        const rightSidebarContainer = document.getElementById('rightSidebarContainer'); // Reference to the new right sidebar
+        const footerContainer = document.getElementById('footerContainer');
+        const visualCanvas = document.getElementById('visualCanvas');
+        const visualModeSelect = document.getElementById('visualMode');
+        const colorSpeedSlider = document.getElementById('colorSpeed');
+        const amplitudeSensitivitySlider = document.getElementById('amplitudeSensitivity');
+        const audioReactionThresholdSlider = document.getElementById('audioReactionThreshold');
+        const bassSensitivitySlider = document.getElementById('bassSensitivity'); // New
+        const midSensitivitySlider = document.getElementById('midSensitivity');   // New
+        const trebleSensitivitySlider = document.getElementById('trebleSensitivity'); // New
+        const layerOpacitySlider = document.getElementById('layerOpacity');
+        const shapeScaleSlider = document.getElementById('shapeScale');
+        const deformationLevelSlider = document.getElementById('deformationLevel');
+        const materialModeSlider = document.getElementById('materialMode');
+        const grayscaleToggle = document.getElementById('grayscaleToggle');
+        const colorInputs = Array.from({ length: 6 }, (_, i) => document.getElementById(`color${i + 1}`));
+        const toggleAudioBtn = document.getElementById('toggleAudio');
+        const imageUploadInput = document.getElementById('imageUpload');
+        const clearImageBtn = document.getElementById('clearImageBtn'); // New button
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const messageBox = document.getElementById('messageBox');
+        const messageText = document.getElementById('messageText');
+        const messageBoxOkBtn = document.getElementById('messageBoxOk');
+        const audioDebugInfo = document.getElementById('audioDebugInfo');
+        const currentAmplitudeSpan = document.getElementById('currentAmplitude');
+        const normalizedReactionSpan = document.getElementById('normalizedReaction');
+        const bassAmplitudeSpan = document.getElementById('bassAmplitude');   // New
+        const midAmplitudeSpan = document.getElementById('midAmplitude');     // New
+        const trebleAmplitudeSpan = document.getElementById('trebleAmplitude'); // New
+
+        // Background filter controls (general for image/camera)
+        const chromaKeyColorInput = document.getElementById('chromaKeyColor');
+        const chromaKeyThresholdSlider = document.getElementById('chromaKeyThreshold');
+        const backgroundScaleSlider = document.getElementById('backgroundScaleSlider');
+
+        // NEW IMAGE EFFECT SLIDERS DOM ELEMENTS
+        const hueRotateSlider = document.getElementById('hueRotateSlider');
+        const saturationSlider = document.getElementById('saturationSlider');
+        const vignetteSlider = document.getElementById('vignetteSlider');
+        const posterizeSlider = document.getElementById('posterizeSlider');
+        const sharpenSlider = document.getElementById('sharpenSlider');
+        const scanlineSlider = document.getElementById('scanlineSlider');
+
+        // Camera specific controls (now in right sidebar)
+        const startCameraBtn = document.getElementById('startCameraBtn');
+        const stopCameraBtn = document.getElementById('stopCameraBtn');
+        const cameraFilterModeSelect = document.getElementById('cameraFilterModeSelect');
+        const cameraNoiseSlider = document.getElementById('cameraNoiseSlider');
+        const cameraEdgeSensitivitySlider = document.getElementById('cameraEdgeSensitivitySlider');
+        const cameraBrightnessSlider = document.getElementById('cameraBrightnessSlider');
+        const cameraContrastSlider = document.getElementById('cameraContrastSlider');
+        const cameraPixelateSizeSlider = document.getElementById('cameraPixelateSizeSlider');
+        const cameraBlurAmountSlider = document.getElementById('cameraBlurAmountSlider');
+        const cameraMaterialSelect = document.getElementById('cameraMaterialSelect');
+
+        // Profile buttons
+        const maroProfileBtn = document.getElementById('maroProfileBtn');
+        const jucaProfileBtn = document.getElementById('jucaProfileBtn');
+        const maroPage = document.getElementById('maroPage');
+        const jucaPage = document.getElementById('jucaPage');
+        const backButtons = document.querySelectorAll('.back-btn'); // Select all back buttons
+
+        // MIDI section elements
+        const midiInputSelect = document.getElementById('midiInputSelect');
+        const midiOutputSelect = document.getElementById('midiOutputSelect');
+        const midiChannelInput = document.getElementById('midiChannelInput');
+        const startMidiLearnBtn = document.getElementById('startMidiLearnBtn');
+        const stopMidiLearnBtn = document.getElementById('stopMidiLearnBtn');
+        const midiLearnStatus = document.getElementById('midiLearnStatus');
+        const midiMappingsTableBody = document.getElementById('midiMappingsTableBody');
+        const midiMonitor = document.getElementById('midiMonitor');
+        const clearMidiMappingsBtn = document.getElementById('clearMidiMappingsBtn');
+
+        // Input device selection elements
+        const audioInputSelect = document.getElementById('audioInputSelect');
+        const cameraSelect = document.getElementById('cameraSelect'); // Now in left sidebar
+
+        // All mappable controls (add data-midi-target="id" in HTML)
+        const mappableControls = document.querySelectorAll('.mappable-control');
+
+
+        // --- Firebase Init ---
+        const initFirebase = async () => {
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                userId = auth.currentUser?.uid || crypto.randomUUID();
+                console.log("Firebase initialized and user authenticated:", userId);
+            } catch (error) {
+                console.error("Error al inicializar Firebase o autenticar:", error);
+                showMessage("¡Ojo! Hubo un error al iniciar Firebase. Algunas funciones podrían no jalar bien.");
+            }
+        };
+
+        // Function to show custom messages
+        function showMessage(message) {
+            messageText.textContent = message;
+            messageBox.style.display = 'flex';
+        }
+
+        // Function to navigate between pages (only for Maro/JuCa)
+        function navigateToPage(pageId) {
+            const pages = document.querySelectorAll('.page');
+            pages.forEach(page => {
+                if (page.id === pageId) {
+                    page.classList.remove('hidden');
+                    // Manage main visualizer and camera states
+                    if (pageId === 'mainVisualizerPage') {
+                        // Show main visualizer UI
+                        headerContainerMain.classList.remove('hidden');
+                        leftSidebarContainer.classList.remove('hidden');
+                        rightSidebarContainer.classList.remove('hidden');
+                        footerContainer.classList.remove('hidden');
+                        if (audioContext && audioContext.state === 'running') {
+                            audioDebugInfo.style.display = 'block';
+                        }
+                        // Ensure main visualizer animation is running
+                        if (renderer.setAnimationLoop) {
+                            renderer.setAnimationLoop(animateMainVisualizer);
+                        }
+                    } else { // Profile pages (Maro/JuCa)
+                        // For profile pages, ensure their specific header and content are visible
+                        const currentProfileHeader = page.querySelector('.header-container');
+                        const currentProfileContent = page.querySelector('.profile-page-content');
+                        if (currentProfileHeader) currentProfileHeader.classList.remove('hidden');
+                        if (currentProfileContent) currentProfileContent.style.display = 'flex'; // Ensure content is displayed
+
+                        headerContainerMain.classList.add('hidden'); // Hide main header
+                        leftSidebarContainer.classList.add('hidden');
+                        rightSidebarContainer.classList.add('hidden');
+                        footerContainer.classList.add('hidden');
+                        audioDebugInfo.style.display = 'none';
+                        // Keep audio running, but stop camera if active
+                        stopCameraAsBackground();
+                        if (renderer.setAnimationLoop) {
+                            renderer.setAnimationLoop(null); // Stop main visualizer loop
+                        }
+                    }
+                } else {
+                    page.classList.add('hidden');
+                }
+            });
+            onWindowResize(); // Ensure canvas readjusts if necessary
+        }
+
+        // --- Main Visualizer Three.js Init and Resize ---
+        function initThree() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ canvas: visualCanvas, alpha: true, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x000000, 0); // Clear to transparent black
+            renderer.setPixelRatio(window.devicePixelRatio);
+
+            camera.position.z = 5;
+
+            const ambientLight = new THREE.AmbientLight(0x404040);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight.position.set(1, 1, 1).normalize();
+            scene.add(directionalLight);
+
+            const planeGeometry = new THREE.PlaneGeometry(2, 2); // A plane that covers the whole screen
+
+            // Image/Camera Plane (unified background)
+            imagePlane = new THREE.Mesh(planeGeometry, new THREE.ShaderMaterial({
+                uniforms: {
+                    backgroundTexture: { value: null },
+                    isCameraActive: { value: false },
+                    chromaKeyColor: { value: new THREE.Color(params.chromaKeyColor) },
+                    chromaKeyThreshold: { value: params.chromaKeyThreshold },
+                    backgroundFilterMode: { value: params.cameraFilterMode }, // Now uses cameraFilterMode
+                    backgroundNoiseAmount: { value: params.cameraNoiseAmount },
+                    backgroundEdgeSensitivity: { value: params.cameraEdgeSensitivity },
+                    backgroundBrightness: { value: params.cameraBrightness },
+                    backgroundContrast: { value: params.cameraContrast },
+                    backgroundPixelateSize: { value: params.cameraPixelateSize },
+                    backgroundBlurAmount: { value: params.cameraBlurAmount },
+                    backgroundMaterialColor: { value: params.cameraMaterialColor },
+                    audioVolume: { value: 0.0 }, // This will be updated from main analyser
+                    time: { value: 0.0 },
+                    // NEW IMAGE EFFECT UNIFORMS
+                    uHueRotate: { value: params.hueRotate * Math.PI / 180.0 }, // Convert degrees to radians
+                    uSaturation: { value: params.saturation / 100.0 }, // Normalize to 0-2
+                    uVignette: { value: params.vignette / 100.0 }, // Normalize to 0-1
+                    uPosterizeLevels: { value: params.posterize }, // Raw value 2-255
+                    uSharpenAmount: { value: params.sharpen }, // Raw value 0-10
+                    uScanlineDensity: { value: params.scanline / 100.0 }, // Normalize to 0-1
+                },
+                vertexShader: `
+                    varying vec2 vUv;
+                    void main() {
+                        vUv = uv;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    uniform sampler2D backgroundTexture;
+                    uniform bool isCameraActive;
+                    uniform vec3 chromaKeyColor;
+                    uniform float chromaKeyThreshold;
+                    uniform int backgroundFilterMode; // 0:none, 1:grayscale, 2:invert, 3:sepia, 4:pixelate, 5:blur, 6:edge-only
+                    uniform float backgroundNoiseAmount;
+                    uniform float backgroundEdgeSensitivity;
+                    uniform float backgroundBrightness; // -1 to 1
+                    uniform float backgroundContrast; // 0 to 2
+                    uniform float backgroundPixelateSize;
+                    uniform float backgroundBlurAmount;
+                    uniform vec3 backgroundMaterialColor;
+                    uniform float audioVolume;
+                    uniform float time;
+
+                    // NEW IMAGE EFFECT UNIFORMS
+                    uniform float uHueRotate;
+                    uniform float uSaturation;
+                    uniform float uVignette;
+                    uniform float uPosterizeLevels;
+                    uniform float uSharpenAmount;
+                    uniform float uScanlineDensity;
+
+                    varying vec2 vUv;
+
+                    // Simple hash function for random numbers in GLSL
+                    float hash(vec2 p) {
+                        return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+                    }
+
+                    // Perlin Noise (simplified)
+                    float noise(vec2 st) {
+                        vec2 i = floor(st);
+                        vec2 f = fract(st);
+                        vec2 u = f * f * (3.0 - 2.0 * f);
+                        float a = hash(i);
+                        float b = hash(i + vec2(1.0, 0.0));
+                        float c = hash(i + vec2(0.0, 1.0));
+                        float d = hash(i + vec2(1.0, 1.0));
+                        return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+                    }
+
+                    // Grayscale conversion
+                    float toGrayscale(vec3 color) {
+                        return dot(color, vec3(0.299, 0.587, 0.114));
+                    }
+
+                    // Apply brightness and contrast
+                    vec3 applyBrightnessContrast(vec3 color, float bright, float cont) {
+                        color += bright; // Apply brightness
+                        color = (color - 0.5) * cont + 0.5; // Apply contrast
+                        return clamp(color, 0.0, 1.0);
+                    }
+
+                    // Apply sepia filter
+                    vec3 applySepia(vec3 color) {
+                        float r = color.r;
+                        float g = color.g;
+                        float b = color.b;
+                        vec3 sepiaColor;
+                        sepiaColor.r = min(1.0, (r * 0.393) + (g * 0.769) + (b * 0.189));
+                        sepiaColor.g = min(1.0, (r * 0.349) + (g * 0.686) + (b * 0.168));
+                        sepiaColor.b = min(1.0, (r * 0.272) + (g * 0.534) + (b * 0.131));
+                        return sepiaColor;
+                    }
+
+                    // Hue Rotation
+                    vec3 rgbToHsv(vec3 c) {
+                        vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+                        vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+                        vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+                        float d = q.x - min(q.w, q.y);
+                        float e = 1.0e-10;
+                        return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+                    }
+
+                    vec3 hsvToRgb(vec3 c) {
+                        vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+                        vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+                        return c.z * mix(K.xxx, clamp(p - K.x, 0.0, 1.0), c.y);
+                    }
+
+                    // Saturation
+                    vec3 adjustSaturation(vec3 color, float sat) {
+                        vec3 gray = vec3(dot(color, vec3(0.299, 0.587, 0.114)));
+                        return mix(gray, color, sat);
+                    }
+
+                    // Vignette
+                    vec3 applyVignette(vec3 color, float vignetteAmount) {
+                        vec2 uv_centered = vUv - 0.5;
+                        float dist = length(uv_centered);
+                        float vignette = smoothstep(0.4, 0.8, dist); // Adjust these values for vignette size/falloff
+                        return mix(color, color * (1.0 - vignetteAmount), vignette);
+                    }
+
+                    // Posterize
+                    vec3 applyPosterize(vec3 color, float levels) {
+                        return floor(color * levels) / levels;
+                    }
+
+                    // Sharpen (simple 3x3 convolution)
+                    vec3 applySharpen(sampler2D tex, vec2 uv, float amount) {
+                        vec2 texelSize = 1.0 / vec2(textureSize(tex, 0));
+                        vec3 sum = vec3(0.0);
+
+                        sum += texture2D(tex, uv + texelSize * vec2(-1, -1)).rgb * -0.07;
+                        sum += texture2D(tex, uv + texelSize * vec2( 0, -1)).rgb * -0.07;
+                        sum += texture2D(tex, uv + texelSize * vec2( 1, -1)).rgb * -0.07;
+                        sum += texture2D(tex, uv + texelSize * vec2(-1,  0)).rgb * -0.07;
+                        sum += texture2D(tex, uv).rgb * (1.0 + 8.0 * 0.07); // Center pixel weight
+                        sum += texture2D(tex, uv + texelSize * vec2( 1,  0)).rgb * -0.07;
+                        sum += texture2D(tex, uv + texelSize * vec2(-1,  1)).rgb * -0.07;
+                        sum += texture2D(tex, uv + texelSize * vec2( 0,  1)).rgb * -0.07;
+                        sum += texture2D(tex, uv + texelSize * vec2( 1,  1)).rgb * -0.07;
+
+                        return mix(texture2D(tex, uv).rgb, sum, amount);
+                    }
+
+                    // Scanline
+                    vec3 applyScanline(vec3 color, float density) {
+                        float scanline = sin(vUv.y * 500.0) * 0.05 * density; // 500 lines, 0.05 intensity
+                        return color * (1.0 - scanline);
+                    }
+
+
+                    void main() {
+                        vec4 texColor = texture2D(backgroundTexture, vUv);
+                        vec3 finalColor = texColor.rgb;
+
+                        // 1. Apply Chroma Key (only for images, not camera)
+                        // If camera is active, chroma key is bypassed (assuming camera doesn't need it)
+                        if (!isCameraActive) {
+                            vec3 diff = finalColor - chromaKeyColor;
+                            float dist = length(diff);
+                            if (dist < chromaKeyThreshold) {
+                                discard; // Make pixel transparent
+                            }
+                        }
+
+                        // 2. Apply Brightness and Contrast (always apply)
+                        finalColor = applyBrightnessContrast(finalColor, backgroundBrightness, backgroundContrast);
+
+                        // 3. Apply Base Filter Mode OR Edge-Only Mode (Camera filters take precedence if camera is active)
+                        if (isCameraActive && backgroundFilterMode == 6) { // 'edge-only' mode for camera
+                            // Convert to grayscale for edge detection
+                            float currentGray = toGrayscale(finalColor);
+                            vec2 texelSize = 1.0 / vec2(textureSize(backgroundTexture, 0));
+                            float gX = 0.0;
+                            float gY = 0.0;
+
+                            // Sobel operator kernels (simplified for 2D)
+                            gX += toGrayscale(texture2D(backgroundTexture, vUv + texelSize * vec2(-1, -1)).rgb) * -1.0;
+                            gX += toGrayscale(texture2D(backgroundTexture, vUv + texelSize * vec2(-1, 0)).rgb) * -2.0;
+                            gX += toGrayscale(texture2D(backgroundTexture, vUv + texelSize * vec2(-1, 1)).rgb) * -1.0;
+                            gX += toGrayscale(texture2D(backgroundTexture, vUv + texelSize * vec2(1, -1)).rgb) * 1.0;
+                            gX += toGrayscale(texture2D(backgroundTexture, vUv + texelSize * vec2(1, 0)).rgb) * 2.0;
+                            gX += toGrayscale(texture2D(backgroundTexture, vUv + texelSize * vec2(1, 1)).rgb) * 1.0;
+
+                            gY += toGrayscale(texture2D(backgroundTexture, vUv + texelSize * vec2(-1, -1)).rgb) * -1.0;
+                            gY += toGrayscale(texture2D(backgroundTexture, vUv + vec2(0, -1) * texelSize).rgb) * -2.0;
+                            gY += toGrayscale(texture2D(backgroundTexture, vUv + texelSize * vec2(1, -1)).rgb) * -1.0;
+                            gY += toGrayscale(texture2D(backgroundTexture, vUv + texelSize * vec2(-1, 1)).rgb) * 1.0;
+                            gY += toGrayscale(texture2D(backgroundTexture, vUv + texelSize * vec2(0, 1)).rgb) * 2.0;
+                            gY += toGrayscale(texture2D(backgroundTexture, vUv + texelSize * vec2(1, 1)).rgb) * 1.0;
+
+                            float edgeStrength = sqrt(gX * gX + gY * gY);
+                            float dynamicEdgeThreshold = mix(0.3, 0.05, backgroundEdgeSensitivity);
+                            dynamicEdgeThreshold = max(0.0, dynamicEdgeThreshold - audioVolume * 0.2); // Audio makes it more sensitive
+                            
+                            finalColor = vec3(0.0); // Start with black background for edges
+                            if (edgeStrength > dynamicEdgeThreshold) {
+                                finalColor = backgroundMaterialColor; // Apply material color to edges
+                            }
+                        } else if (isCameraActive) { // Apply other base filters for camera
+                            if (backgroundFilterMode == 1) { // Grayscale
+                                float gray = toGrayscale(finalColor);
+                                finalColor = vec3(gray);
+                            } else if (backgroundFilterMode == 2) { // Invert
+                                finalColor = vec3(1.0 - finalColor.r, 1.0 - finalColor.g, 1.0 - finalColor.b);
+                            } else if (backgroundFilterMode == 3) { // Sepia
+                                finalColor = applySepia(finalColor);
+                            } else if (backgroundFilterMode == 4) { // Pixelate
+                                vec2 texelSize = 1.0 / vec2(textureSize(backgroundTexture, 0));
+                                vec2 pixelatedUV = floor(vUv * backgroundPixelateSize) / backgroundPixelateSize;
+                                finalColor = texture2D(backgroundTexture, pixelatedUV).rgb;
+                            } else if (backgroundFilterMode == 5) { // Blur
+                                vec2 texelSize = 1.0 / vec2(textureSize(backgroundTexture, 0));
+                                vec3 blurredColor = vec3(0.0);
+                                float count = 0.0;
+                                for (float y = -backgroundBlurAmount; y <= backgroundBlurAmount; y += 1.0) {
+                                    for (float x = -backgroundBlurAmount; x <= backgroundBlurAmount; x += 1.0) {
+                                        blurredColor += texture2D(backgroundTexture, vUv + vec2(x, y) * texelSize).rgb;
+                                        count += 1.0;
+                                    }
+                                }
+                                finalColor = blurredColor / count;
+                            }
+                            // If backgroundFilterMode is 0 ('none'), no base filter is applied.
+                        } else { // Apply NEW IMAGE EFFECTS only if camera is NOT active
+                            if (uHueRotate != 0.0) {
+                                vec3 hsv = rgbToHsv(finalColor);
+                                hsv.x = fract(hsv.x + uHueRotate / (2.0 * 3.14159)); // Normalize angle to 0-1 range for HSV hue
+                                finalColor = hsvToRgb(hsv);
+                            }
+                            if (uSaturation != 1.0) {
+                                finalColor = adjustSaturation(finalColor, uSaturation);
+                            }
+                            if (uVignette > 0.0) {
+                                finalColor = applyVignette(finalColor, uVignette);
+                            }
+                            if (uPosterizeLevels < 255.0) {
+                                finalColor = applyPosterize(finalColor, uPosterizeLevels);
+                            }
+                            if (uSharpenAmount > 0.0) {
+                                finalColor = applySharpen(backgroundTexture, vUv, uSharpenAmount);
+                            }
+                            if (uScanlineDensity > 0.0) {
+                                finalColor = applyScanline(finalColor, uScanlineDensity);
+                            }
+                        }
+
+                        // 4. Add Noise (always apply if noiseAmount > 0)
+                        float n = noise(vUv * 100.0 + time * 0.5) * 2.0 - 1.0;
+                        finalColor += n * backgroundNoiseAmount;
+
+                        gl_FragColor = vec4(finalColor, 1.0);
+                    }
+                `,
+                transparent: true,
+                side: THREE.DoubleSide,
+                blending: THREE.NormalBlending,
+                depthWrite: false,
+            }));
+            imagePlane.position.z = -99; // Place it far back
+            imagePlane.visible = false;
+            scene.add(imagePlane);
+
+            // Create the video element for camera feed (hidden)
+            videoFeed = document.createElement('video');
+            videoFeed.autoplay = true;
+            videoFeed.playsInline = true;
+            videoFeed.style.display = 'none'; // Keep it hidden
+            // Append video element to body (it doesn't need to be in the canvas container)
+            document.body.appendChild(videoFeed);
+
+            window.addEventListener('resize', onWindowResize, false);
+            document.addEventListener('fullscreenchange', onFullscreenChange);
+        }
+
+        function onWindowResize() {
+            // Adjust main visualizer canvas
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            // Adjust the size of background meshes (imagePlane)
+            if (imagePlane && imagePlane.visible && imagePlane.material.uniforms.backgroundTexture && imagePlane.material.uniforms.backgroundTexture.value) {
+                const texture = imagePlane.material.uniforms.backgroundTexture.value;
+                // For video textures, the image property might not be immediately available
+                const textureAspect = (texture.image && texture.image.videoWidth) ? texture.image.videoWidth / texture.image.videoHeight : (texture.image ? texture.image.width / texture.image.height : 1);
+
+                const viewHeight = 2 * Math.tan(camera.fov * Math.PI / 360) * Math.abs(imagePlane.position.z - camera.position.z);
+                const viewWidth = viewHeight * camera.aspect;
+
+                let scaleX, scaleY;
+
+                // Scale to cover the view, then apply backgroundScaleFactor
+                if (viewWidth / textureAspect >= viewHeight) {
+                    scaleX = viewWidth * params.backgroundScaleFactor;
+                    scaleY = (viewWidth / textureAspect) * params.backgroundScaleFactor;
+                } else {
+                    scaleX = (viewHeight * textureAspect) * params.backgroundScaleFactor;
+                    scaleY = viewHeight * params.backgroundScaleFactor;
+                }
+                imagePlane.scale.set(scaleX, scaleY, 1);
+            }
+
+            // Adjust the size of the fractal noise plane to cover the screen
+            if (currentVisualMode === 'fractalNoise' && visualObjects.length > 0 && visualObjects[0].mesh) {
+                const plane = visualObjects[0].mesh;
+                const viewHeight = 2 * Math.tan(camera.fov * Math.PI / 360) * Math.abs(camera.position.z - plane.position.z);
+                const viewWidth = viewHeight * camera.aspect;
+                plane.scale.set(viewWidth, viewHeight, 1);
+            }
+            // Adjust the size of Hydra planes to cover the screen
+            if ((currentVisualMode === 'hydraFuego' || currentVisualMode === 'hydraGlitch' || currentVisualMode === 'hydraTunel') && visualObjects.length > 0 && visualObjects[0].mesh) {
+                const plane = visualObjects[0].mesh;
+                const viewHeight = 2 * Math.tan(camera.fov * Math.PI / 360) * Math.abs(camera.position.z - plane.position.z);
+                const viewWidth = viewHeight * camera.aspect;
+                plane.scale.set(viewWidth, viewHeight, 1);
+            }
+        }
+
+        function onFullscreenChange() {
+            // Get all relevant UI containers
+            const allHeaders = document.querySelectorAll('.header-container');
+            const allSidebars = [leftSidebarContainer, rightSidebarContainer]; // Include both sidebars
+            const allFooters = [footerContainer]; // Only one footer
+            const allProfileContents = document.querySelectorAll('.profile-page-content'); // Contents of profile pages
+
+            if (document.fullscreenElement) {
+                // If entering fullscreen, hide all UI elements
+                allHeaders.forEach(el => el.classList.add('hidden'));
+                allSidebars.forEach(el => el.classList.add('hidden')); // Hide sidebars
+                allFooters.forEach(el => el.classList.add('hidden'));
+                allProfileContents.forEach(el => el.style.display = 'none'); // Hide content of profile pages
+                audioDebugInfo.style.display = 'none';
+                showMessage('¡pantalla completa activada! presiona esc para salir.'); // Message to exit
+            } else {
+                // If exiting fullscreen, show UI elements based on the active page
+                const currentPage = document.querySelector('.page:not(.hidden)');
+
+                if (currentPage && currentPage.id === 'mainVisualizerPage') {
+                    headerContainerMain.classList.remove('hidden');
+                    leftSidebarContainer.classList.remove('hidden'); // Show left sidebar
+                    rightSidebarContainer.classList.remove('hidden'); // Show right sidebar
+                    footerContainer.classList.remove('hidden');
+                    if (audioContext && audioContext.state === 'running') {
+                        audioDebugInfo.style.display = 'block';
+                    }
+                } else if (currentPage && (currentPage.id === 'maroPage' || currentPage.id === 'jucaPage')) {
+                    // For profile pages, show their specific header and content
+                    const currentProfileHeader = currentPage.querySelector('.header-container');
+                    const currentProfileContent = currentPage.querySelector('.profile-page-content');
+                    if (currentProfileHeader) currentProfileHeader.classList.remove('hidden');
+                    if (currentProfileContent) currentProfileContent.style.display = 'flex'; // Assuming display flex for content
+                }
+            }
+            onWindowResize(); // Readjust canvas and camera size
+        }
+
+        // --- Functions for different visual modes ---
+        function clearVisuals() {
+            visualObjects.forEach(obj => {
+                if (obj.mesh) {
+                    if (obj.mesh.geometry) obj.mesh.geometry.dispose();
+                    if (obj.mesh.material) {
+                        if (Array.isArray(obj.mesh.material)) {
+                            obj.mesh.material.forEach(m => m.dispose());
+                        } else {
+                            obj.mesh.material.dispose();
+                        }
+                    }
+                    scene.remove(obj.mesh);
+                }
+                if (obj.wireframe) {
+                    if (obj.wireframe.geometry) obj.wireframe.geometry.dispose();
+                    if (obj.wireframe.material) {
+                        if (Array.isArray(obj.wireframe.material)) {
+                            obj.wireframe.material.forEach(m => m.dispose());
+                        } else {
+                            obj.wireframe.material.dispose();
+                        }
+                    }
+                    scene.remove(obj.wireframe);
+                }
+                if (obj.points) {
+                    if (obj.points.geometry) obj.points.geometry.dispose();
+                    if (obj.points.material) {
+                        if (Array.isArray(obj.points.material)) {
+                            obj.points.material.forEach(m => m.dispose());
+                        } else {
+                            obj.points.material.dispose();
+                        }
+                    }
+                    scene.remove(obj.points);
+                }
+            });
+            visualObjects = [];
+            if (particleBurstSystem) {
+                scene.remove(particleBurstSystem);
+                particleBurstSystem.geometry.dispose();
+                particleBurstSystem.material.dispose();
+                particleBurstSystem = null;
+            }
+        }
+
+        function getCustomColor(index) {
+            const hex = params.customColors[index % params.customColors.length];
+            const color = new THREE.Color(hex);
+            if (params.grayscale) {
+                const gray = color.r * 0.299 + color.g * 0.587 + color.b * 0.114;
+                color.setRGB(gray, gray, gray);
+            }
+            return color;
+        }
+
+        function applyMaterialColor(material, customColorIndex) {
+            material.color.copy(getCustomColor(customColorIndex));
+        }
+
+        function createGeometricObject(geometry, index) {
+            const solidMaterial = new THREE.MeshPhongMaterial({
+                color: getCustomColor(index),
+                transparent: true,
+                opacity: params.layerOpacity,
+            });
+            const wireframeMaterial = new THREE.MeshBasicMaterial({
+                color: getCustomColor(index),
+                wireframe: true,
+                transparent: true,
+                opacity: params.layerOpacity,
+            });
+            const pointsMaterial = new THREE.PointsMaterial({
+                color: getCustomColor(index),
+                size: 0.1,
+                transparent: true,
+                opacity: params.layerOpacity,
+                blending: THREE.AdditiveBlending,
+            });
+
+            const mesh = new THREE.Mesh(geometry, solidMaterial);
+            const wireframe = new THREE.Mesh(geometry, wireframeMaterial);
+            const points = new THREE.Points(geometry, pointsMaterial);
+
+            const deformableGeometry = geometry.clone();
+            deformableGeometry.userData.originalPositions = Array.from(deformableGeometry.attributes.position.array);
+
+            mesh.geometry = deformableGeometry;
+            wireframe.geometry = deformableGeometry;
+            points.geometry = deformableGeometry;
+
+            const obj = { mesh, wireframe, points, index };
+            scene.add(mesh);
+            scene.add(wireframe);
+            scene.add(points);
+
+            updateMaterialMode(obj, params.materialMode);
+
+            return obj;
+        }
+
+        function updateMaterialMode(obj, mode) {
+            if (obj.mesh) obj.mesh.visible = (mode === 0);
+            if (obj.wireframe) obj.wireframe.visible = (mode === 1);
+            if (obj.points) obj.points.visible = (mode === 2);
+        }
+
+        function applyDeformation(obj, normalizedAmplitude, deformationLevel) {
+            const geometry = obj.mesh.geometry;
+            const positions = geometry.attributes.position.array;
+            const originalPositions = geometry.userData.originalPositions;
+
+            if (!originalPositions) return;
+
+            for (let i = 0; i < positions.length; i += 3) {
+                const originalX = originalPositions[i];
+                const originalY = originalPositions[i + 1];
+                const originalZ = originalPositions[i + 2];
+
+                positions[i] = originalX * (1 + Math.sin(performance.now() * 0.005 + originalX * 0.1) * normalizedAmplitude * deformationLevel * 0.5);
+                positions[i + 1] = originalY * (1 + Math.cos(performance.now() * 0.005 + originalY * 0.1) * normalizedAmplitude * deformationLevel * 0.5);
+                positions[i + 2] = originalZ * (1 + Math.sin(performance.now() * 0.005 + originalZ * 0.1) * normalizedAmplitude * deformationLevel * 0.5);
+            }
+            geometry.attributes.position.needsUpdate = true;
+        }
+
+        // Mode 1: Pulsating Spheres
+        function createSpheresVisual() {
+            clearVisuals();
+            const numSpheres = 20;
+            for (let i = 0; i < numSpheres; i++) {
+                const geometry = new THREE.SphereGeometry(0.8, 32, 32);
+                const obj = createGeometricObject(geometry, i);
+                obj.mesh.position.set(
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10
+                );
+                obj.wireframe.position.copy(obj.mesh.position);
+                obj.points.position.copy(obj.mesh.position);
+                visualObjects.push(obj);
+            }
+        }
+
+        // Mode 2: Reactive Particles
+        function createParticlesVisual() {
+            clearVisuals();
+            const numParticles = 20000;
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(numParticles * 3);
+            const originalPositions = new Float32Array(numParticles * 3);
+            const colors = new Float32Array(numParticles * 3);
+
+            for (let i = 0; i < numParticles; i++) {
+                const x = (Math.random() - 0.5) * 20;
+                const y = (Math.random() - 0.5) * 20;
+                const z = (Math.random() - 0.5) * 20;
+
+                positions[i * 3] = x;
+                positions[i * 3 + 1] = y;
+                positions[i * 3 + 2] = z;
+
+                originalPositions[i * 3] = x;
+                originalPositions[i * 3 + 1] = y;
+                originalPositions[i * 3 + 2] = z;
+
+                const color = getCustomColor(i);
+                colors[i * 3] = color.r;
+                colors[i * 3 + 1] = color.g;
+                colors[i * 3 + 2] = color.b;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.1,
+                vertexColors: true,
+                transparent: true,
+                opacity: params.layerOpacity,
+                blending: THREE.AdditiveBlending,
+            });
+
+            const particles = new THREE.Points(geometry, material);
+            particles.userData.originalPositions = originalPositions;
+            scene.add(particles);
+            visualObjects.push({ points: particles });
+        }
+
+        // Mode 3: Color Waves (using a subdivided plane)
+        function createWavesVisual() {
+            clearVisuals();
+            const planeGeometry = new THREE.PlaneGeometry(15, 15, 80, 80);
+            const obj = createGeometricObject(planeGeometry, 0);
+            obj.mesh.rotation.x = -Math.PI / 2;
+            obj.wireframe.rotation.x = -Math.PI / 2;
+            obj.points.rotation.x = -Math.PI / 2;
+            visualObjects.push(obj);
+        }
+
+        // Mode 4: Rotating Cubes
+        function createCubesVisual() {
+            clearVisuals();
+            const numCubes = 15;
+            for (let i = 0; i < numCubes; i++) {
+                const geometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+                const obj = createGeometricObject(geometry, i);
+                obj.mesh.position.set(
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10
+                );
+                obj.wireframe.position.copy(obj.mesh.position);
+                obj.points.position.copy(obj.mesh.position);
+                visualObjects.push(obj);
+            }
+        }
+
+        // Mode 5: Audio Bars (similar to an equalizer)
+        function createAudioBarsVisual() {
+            clearVisuals();
+            const numBars = 64;
+            const barWidth = 0.1;
+            const barSpacing = 0.15;
+            for (let i = 0; i < numBars; i++) {
+                const geometry = new THREE.BoxGeometry(barWidth, 0.1, barWidth);
+                const material = new THREE.MeshPhongMaterial({
+                    color: getCustomColor(i),
+                    transparent: true,
+                    opacity: params.layerOpacity,
+                });
+                const bar = new THREE.Mesh(geometry, material);
+                bar.position.x = (i - numBars / 2) * barSpacing;
+                bar.position.y = -2;
+                scene.add(bar);
+                visualObjects.push({ mesh: bar });
+            }
+        }
+
+        // Mode 6: Multiple Toruses
+        function createTorusVisual() {
+            clearVisuals();
+            const numToruses = 8;
+            for (let i = 0; i < numToruses; i++) {
+                const geometry = new THREE.TorusGeometry(2, 0.8, 16, 100);
+                const obj = createGeometricObject(geometry, i);
+                obj.mesh.position.set(
+                    (Math.random() - 0.5) * 8,
+                    (Math.random() - 0.5) * 8,
+                    (Math.random() - 0.5) * 8
+                );
+                obj.wireframe.position.copy(obj.mesh.position);
+                obj.points.position.copy(obj.mesh.position);
+                visualObjects.push(obj);
+            }
+        }
+
+        // Mode 7: Torus Knot (Single instance, as requested)
+        function createTorusKnotVisual() {
+            clearVisuals();
+            const geometry = new THREE.TorusKnotGeometry(2.5, 0.8, 100, 16);
+            const obj = createGeometricObject(geometry, 0);
+            visualObjects.push(obj);
+        }
+
+        // Mode 8: Multiple Dodecahedrons
+        function createDodecahedronVisual() {
+            clearVisuals();
+            const numDodecahedrons = 5;
+            for (let i = 0; i < numDodecahedrons; i++) {
+                const geometry = new THREE.DodecahedronGeometry(2);
+                const obj = createGeometricObject(geometry, i);
+                obj.mesh.position.set(
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10
+                );
+                obj.wireframe.position.copy(obj.mesh.position);
+                obj.points.position.copy(obj.mesh.position);
+                visualObjects.push(obj);
+            }
+        }
+
+        // Mode 9: Multiple Icosahedrons
+        function createIcosahedronVisual() {
+            clearVisuals();
+            const numIcosahedrons = 5;
+            for (let i = 0; i < numIcosahedrons; i++) {
+                const geometry = new THREE.IcosahedronGeometry(2);
+                const obj = createGeometricObject(geometry, i);
+                obj.mesh.position.set(
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10
+                );
+                obj.wireframe.position.copy(obj.mesh.position);
+                obj.points.position.copy(obj.mesh.position);
+                visualObjects.push(obj);
+            }
+        }
+
+        // Mode 10: Multiple Octahedrons
+        function createOctahedronVisual() {
+            clearVisuals();
+            const numOctahedrons = 5;
+            for (let i = 0; i < numOctahedrons; i++) {
+                const geometry = new THREE.OctahedronGeometry(2);
+                const obj = createGeometricObject(geometry, i);
+                obj.mesh.position.set(
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10
+                );
+                obj.wireframe.position.copy(obj.mesh.position);
+                obj.points.position.copy(obj.mesh.position);
+                visualObjects.push(obj);
+            }
+        }
+
+        // Mode 11: Multiple Cones
+        function createConeVisual() {
+            clearVisuals();
+            const numCones = 7;
+            for (let i = 0; i < numCones; i++) {
+                const geometry = new THREE.ConeGeometry(1.5, 3, 32);
+                const obj = createGeometricObject(geometry, i);
+                obj.mesh.position.set(
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10
+                );
+                obj.wireframe.position.copy(obj.mesh.position);
+                obj.points.position.copy(obj.mesh.position);
+                visualObjects.push(obj);
+            }
+        }
+
+        // Mode 12: Multiple Cylinders
+        function createCylinderVisual() {
+            clearVisuals();
+            const numCylinders = 7;
+            for (let i = 0; i < numCylinders; i++) {
+                const geometry = new THREE.CylinderGeometry(1, 1, 3, 32);
+                const obj = createGeometricObject(geometry, i);
+                obj.mesh.position.set(
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10
+                );
+                obj.wireframe.position.copy(obj.mesh.position);
+                obj.points.position.copy(obj.mesh.position);
+                visualObjects.push(obj);
+            }
+        }
+
+        // Mode 13: Multiple Rings
+        function createRingVisual() {
+            clearVisuals();
+            const numRings = 10;
+            for (let i = 0; i < numRings; i++) {
+                const geometry = new THREE.RingGeometry(1, 2, 32);
+                const obj = createGeometricObject(geometry, i);
+                obj.mesh.position.set(
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10
+                );
+                obj.wireframe.position.copy(obj.mesh.position);
+                obj.points.position.copy(obj.mesh.position);
+                visualObjects.push(obj);
+            }
+        }
+
+        // Mode 14: Multiple Tetrahedrons
+        function createTetrahedronVisual() {
+            clearVisuals();
+            const numTetrahedrons = 5;
+            for (let i = 0; i < numTetrahedrons; i++) {
+                const geometry = new THREE.TetrahedronGeometry(2);
+                const obj = createGeometricObject(geometry, i);
+                obj.mesh.position.set(
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10
+                );
+                obj.wireframe.position.copy(obj.mesh.position);
+                obj.points.position.copy(obj.mesh.position);
+                visualObjects.push(obj);
+            }
+        }
+
+        // Mode 15: Multi-Toruses (already multiple)
+        function createMultiTorusVisual() {
+            clearVisuals();
+            const numToruses = 8;
+            for (let i = 0; i < numToruses; i++) {
+                const geometry = new THREE.TorusGeometry(1.5, 0.5, 10, 50);
+                const obj = createGeometricObject(geometry, i);
+                obj.mesh.position.set(
+                    (Math.random() - 0.5) * 8,
+                    (Math.random() - 0.5) * 8,
+                    (Math.random() - 0.5) * 8
+                );
+                obj.wireframe.position.copy(obj.mesh.position);
+                obj.points.position.copy(obj.mesh.position);
+                visualObjects.push(obj);
+            }
+        }
+
+        // Mode 16: Ring Gyroscope
+        function createGyroscope1Visual() {
+            clearVisuals();
+            const numRings = 5;
+            for (let i = 0; i < numRings; i++) {
+                const radius = 1 + i * 0.5;
+                const geometry = new THREE.RingGeometry(radius - 0.1, radius + 0.1, 64);
+                const obj = createGeometricObject(geometry, i);
+                obj.mesh.rotation.x = Math.PI / 2;
+                obj.wireframe.rotation.x = Math.PI / 2;
+                obj.points.rotation.x = Math.PI / 2;
+                visualObjects.push(obj);
+            }
+        }
+
+        // Mode 17: Nested Spheres Gyroscope
+        function createGyroscope2Visual() {
+            clearVisuals();
+            const numSpheres = 4;
+            for (let i = 0; i < numSpheres; i++) {
+                const radius = 0.8 + i * 0.6;
+                const geometry = new THREE.SphereGeometry(radius, 32, 32);
+                const obj = createGeometricObject(geometry, i);
+                visualObjects.push(obj);
+            }
+        }
+
+        // Mode 18: Intersecting Toruses Gyroscope
+        function createGyroscope3Visual() {
+            clearVisuals();
+            const numToruses = 3;
+            for (let i = 0; i < numToruses; i++) {
+                const geometry = new THREE.TorusGeometry(2.5, 0.5, 16, 100);
+                const obj = createGeometricObject(geometry, i);
+                if (i === 0) obj.mesh.rotation.x = Math.PI / 2;
+                if (i === 1) obj.mesh.rotation.y = Math.PI / 2;
+                if (i === 2) obj.mesh.rotation.z = Math.PI / 2;
+                obj.wireframe.rotation.copy(obj.mesh.rotation);
+                obj.points.rotation.copy(obj.mesh.rotation);
+                visualObjects.push(obj);
+            }
+        }
+
+        // NEW Mode 19: Fractal Noise (Full-screen shader-based)
+        const fractalNoiseVertexShader = `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `;
+
+        const fractalNoiseFragmentShader = `
+            uniform float time;
+            uniform float audioAmplitude;
+            uniform float colorSpeed;
+            uniform float deformationLevel;
+            uniform float shapeScale;
+            uniform vec3 customColor1;
+            uniform vec3 customColor2;
+            uniform vec3 customColor3;
+            uniform bool grayscale;
+            uniform float layerOpacity;
+
+            varying vec2 vUv;
+
+            // Hash function for random values
+            float hash(float n) { return fract(sin(n) * 43758.5453123); }
+
+            // 2D Noise (simplified Perlin-like)
+            float noise2D(vec2 p) {
+                vec2 ip = floor(p);
+                vec2 fp = fract(p);
+                fp = fp * fp * (3.0 - 2.0 * fp);
+                float tl = hash(ip.x + ip.y * 57.0);
+                float tr = hash(ip.x + 1.0 + ip.y * 57.0);
+                float bl = hash(ip.x + (ip.y + 1.0) * 57.0);
+                float br = hash(ip.x + 1.0 + (ip.y + 1.0) * 57.0);
+                return mix(mix(tl, tr, fp.x), mix(bl, br, fp.x), fp.y);
+            }
+
+            // Fractal Brownian Motion (FBM)
+            float fbm(vec2 p) {
+                float sum = 0.0;
+                float amp = 0.5;
+                float freq = 1.0;
+                for (int i = 0; i < 5; i++) {
+                    sum += noise2D(p * freq) * amp;
+                    freq *= 2.0;
+                    amp *= 0.5;
+                }
+                return sum;
+            }
+
+            void main() {
+                vec2 uv = vUv * 2.0 - 1.0; // Normalize UV to -1 to 1
+                uv *= shapeScale; // Apply global scale
+                uv += vec2(sin(time * 0.1), cos(time * 0.08)) * 0.5 * deformationLevel; // Subtle movement
+
+                float f = fbm(uv + time * colorSpeed * 0.5); // Base fractal noise
+                f += fbm(uv * 2.0 + time * colorSpeed * 0.7) * 0.5; // Add more detail
+                f += audioAmplitude * 0.5; // Audio reactivity
+
+                vec3 color = mix(customColor1, customColor2, f);
+                color = mix(color, customColor3, f * 0.5 + 0.5);
+
+                if (grayscale) {
+                    float gray = dot(color, vec3(0.299, 0.587, 0.114));
+                    color = vec3(gray);
+                }
+
+                gl_FragColor = vec4(color, layerOpacity);
+            }
+        `;
+
+        function createFractalNoiseVisual() {
+            clearVisuals();
+            const planeGeometry = new THREE.PlaneGeometry(2, 2); // A plane that covers the whole screen
+            const material = new THREE.ShaderMaterial({
+                uniforms: {
+                    time: { value: 0.0 },
+                    audioAmplitude: { value: 0.0 },
+                    colorSpeed: { value: params.colorSpeed },
+                    deformationLevel: { value: params.deformationLevel },
+                    shapeScale: { value: params.shapeScale },
+                    customColor1: { value: new THREE.Color(params.customColors[0]) },
+                    customColor2: { value: new THREE.Color(params.customColors[1]) },
+                    customColor3: { value: new THREE.Color(params.customColors[2]) },
+                    grayscale: { value: params.grayscale },
+                    layerOpacity: { value: params.layerOpacity },
+                },
+                vertexShader: fractalNoiseVertexShader,
+                fragmentShader: fractalNoiseFragmentShader,
+                transparent: true,
+                blending: THREE.AdditiveBlending, // Use additive blending for a glowing effect
+            });
+            const mesh = new THREE.Mesh(planeGeometry, material);
+            mesh.position.z = -1; // Place it slightly behind other objects if any
+            scene.add(mesh);
+            visualObjects.push({ mesh: mesh, update: (delta, audioAmplitude) => {
+                material.uniforms.time.value += delta;
+                material.uniforms.audioAmplitude.value = audioAmplitude;
+                material.uniforms.colorSpeed.value = params.colorSpeed;
+                material.uniforms.deformationLevel.value = params.deformationLevel;
+                material.uniforms.shapeScale.value = params.shapeScale;
+                material.uniforms.customColor1.value.set(params.customColors[0]);
+                material.uniforms.customColor2.value.set(params.customColors[1]);
+                material.uniforms.customColor3.value.set(params.customColors[2]);
+                material.uniforms.grayscale.value = params.grayscale;
+                material.uniforms.layerOpacity.value = params.layerOpacity;
+            }});
+            onWindowResize(); // Adjust size to fill screen
+        }
+
+        // NEW HYDRA SHADERS
+        const vertexShaderHydra = `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `;
+
+        const fragmentShaderHydraFuego = `
+            uniform float time;
+            uniform float audioAmplitude; // New uniform for audio reactivity
+            uniform float shapeScale; // New uniform for global scale
+            uniform float colorSpeed; // New uniform for color speed
+            varying vec2 vUv;
+
+            void main() {
+                vec2 uv = vUv * 2.0 - 1.0;
+                uv /= shapeScale; // Apply global scale to UVs
+
+                float r = length(uv);
+                float angle = atan(uv.y, uv.x);
+
+                // Audio reactivity: make swirl more intense with audio
+                float swirl = sin(r * 10.0 - time * 2.0 * colorSpeed + audioAmplitude * 5.0);
+                float radial = cos(angle * 3.0 + time * colorSpeed) * 0.5 + 0.5;
+                float flare = pow(1.0 - r, 3.0);
+
+                vec3 color = vec3(
+                    sin(time * colorSpeed + uv.x * 3.0) * 0.5 + 0.5,
+                    cos(time * colorSpeed + uv.y * 3.0) * 0.5 + 0.5,
+                    swirl * radial
+                );
+
+                // Audio reactivity: make flare brighter with audio
+                color *= flare * (3.0 + audioAmplitude * 2.0);
+
+                gl_FragColor = vec4(color, 1.0);
+            }
+        `;
+
+        // NEW HYDRA GLITCH SHADER
+        const fragmentShaderHydraGlitch = `
+            uniform float time;
+            uniform float audioAmplitude;
+            uniform float shapeScale;
+            uniform float colorSpeed;
+            uniform float deformationLevel;
+            varying vec2 vUv;
+
+            // Hash function for random values
+            float hash(float n) { return fract(sin(n) * 43758.5453123); }
+
+            // 2D Noise (simplified Perlin-like)
+            float noise2D(vec2 p) {
+                vec2 ip = floor(p);
+                vec2 fp = fract(p);
+                fp = fp * fp * (3.0 - 2.0 * fp);
+                float tl = hash(ip.x + ip.y * 57.0);
+                float tr = hash(ip.x + 1.0 + ip.y * 57.0);
+                float bl = hash(ip.x + (ip.y + 1.0) * 57.0);
+                float br = hash(ip.x + 1.0 + (ip.y + 1.0) * 57.0);
+                return mix(mix(tl, tr, fp.x), mix(bl, br, fp.x), fp.y);
+            }
+
+            void main() {
+                vec2 uv = vUv * 2.0 - 1.0;
+                uv /= shapeScale; // Apply global scale
+
+                // Glitch effect based on time and audio
+                vec2 glitchOffset = vec2(
+                    sin(time * 10.0 + uv.y * 50.0) * 0.05 * audioAmplitude * deformationLevel,
+                    cos(time * 12.0 + uv.x * 50.0) * 0.05 * audioAmplitude * deformationLevel
+                );
+                uv += glitchOffset;
+
+                // Tiling/fragmentation
+                vec2 tiledUV = fract(uv * (5.0 + audioAmplitude * 2.0)); // More tiles with audio
+                float n = noise2D(uv * 10.0 + time * colorSpeed); // Noise for distortion
+
+                vec3 color = vec3(
+                    sin(time * colorSpeed + tiledUV.x * 10.0 + n) * 0.5 + 0.5,
+                    cos(time * colorSpeed + tiledUV.y * 10.0 + n) * 0.5 + 0.5,
+                    sin(time * colorSpeed * 0.7 + tiledUV.x * 5.0 + tiledUV.y * 5.0 + n) * 0.5 + 0.5
+                );
+
+                // Add some sharp edges/fragments
+                float fragmentEffect = step(0.5, fract(uv.x * 10.0 + uv.y * 10.0 + time));
+                color = mix(color, vec3(1.0 - color), fragmentEffect * audioAmplitude); // Invert colors on fragments
+
+                gl_FragColor = vec4(color, 1.0);
+            }
+        `;
+
+        // NEW HYDRA TUNNEL SHADER
+        const fragmentShaderHydraTunel = `
+            uniform float time;
+            uniform float audioAmplitude;
+            uniform float shapeScale;
+            uniform float colorSpeed;
+            uniform float deformationLevel;
+            varying vec2 vUv;
+
+            void main() {
+                vec2 uv = vUv * 2.0 - 1.0;
+                uv /= shapeScale; // Apply global scale
+
+                // Convert to polar coordinates
+                float r = length(uv);
+                float angle = atan(uv.y, uv.x);
+
+                // Create a pulsating tunnel effect
+                float tunnelSpeed = time * colorSpeed * 5.0;
+                float tunnelDistortion = sin(r * 15.0 - tunnelSpeed + audioAmplitude * 10.0) * 0.1 * deformationLevel;
+                r += tunnelDistortion;
+
+                // Create stripes or rings
+                float stripes = fract(r * 5.0 - tunnelSpeed * 0.5);
+                stripes = pow(stripes, 2.0); // Sharpen the stripes
+
+                // Color based on angle and stripes
+                vec3 color = vec3(
+                    sin(angle * 5.0 + time * colorSpeed) * 0.5 + 0.5,
+                    cos(angle * 3.0 + time * colorSpeed * 0.7) * 0.5 + 0.5,
+                    sin(angle * 7.0 + time * colorSpeed * 1.2) * 0.5 + 0.5
+                );
+
+                // Mix with stripes
+                color = mix(color, vec3(stripes), 0.7); // Blend with stripes
+
+                // Add a central glow
+                float glow = pow(1.0 - r, 5.0 + audioAmplitude * 5.0); // Brighter glow with audio
+                color += vec3(glow);
+
+                gl_FragColor = vec4(color, 1.0);
+            }
+        `;
+
+
+        // NEW HYDRA VISUAL FUNCTION
+        function createHydraFuegoVisual() {
+            clearVisuals();
+
+            const geometry = new THREE.PlaneGeometry(2, 2);
+            const uniforms = {
+                time: { value: 0 },
+                audioAmplitude: { value: 0.0 }, // Initialize audioAmplitude uniform
+                shapeScale: { value: params.shapeScale }, // Pass global scale
+                colorSpeed: { value: params.colorSpeed } // Pass color speed
+            };
+
+            const material = new THREE.ShaderMaterial({
+                vertexShader: vertexShaderHydra,
+                fragmentShader: fragmentShaderHydraFuego,
+                uniforms: uniforms,
+                depthWrite: false,
+                depthTest: false,
+                blending: THREE.AdditiveBlending, // Hydra often uses additive blending
+                transparent: true
+            });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.z = -1; // Place it slightly behind other objects if any
+            scene.add(mesh);
+            visualObjects.push({ mesh: mesh, update: (delta, audioAmplitude) => {
+                material.uniforms.time.value += delta;
+                material.uniforms.audioAmplitude.value = audioAmplitude;
+                material.uniforms.shapeScale.value = params.shapeScale; // Update scale
+                material.uniforms.colorSpeed.value = params.colorSpeed; // Update color speed
+            }});
+            onWindowResize(); // Adjust size to fill screen
+        }
+
+        function createHydraGlitchVisual() {
+            clearVisuals();
+            const geometry = new THREE.PlaneGeometry(2, 2);
+            const uniforms = {
+                time: { value: 0 },
+                audioAmplitude: { value: 0.0 },
+                shapeScale: { value: params.shapeScale },
+                colorSpeed: { value: params.colorSpeed },
+                deformationLevel: { value: params.deformationLevel }
+            };
+            const material = new THREE.ShaderMaterial({
+                vertexShader: vertexShaderHydra,
+                fragmentShader: fragmentShaderHydraGlitch,
+                uniforms: uniforms,
+                depthWrite: false,
+                depthTest: false,
+                blending: THREE.AdditiveBlending,
+                transparent: true
+            });
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.z = -1;
+            scene.add(mesh);
+            visualObjects.push({ mesh: mesh, update: (delta, audioAmplitude) => {
+                material.uniforms.time.value += delta;
+                material.uniforms.audioAmplitude.value = audioAmplitude;
+                material.uniforms.shapeScale.value = params.shapeScale;
+                material.uniforms.colorSpeed.value = params.colorSpeed;
+                material.uniforms.deformationLevel.value = params.deformationLevel;
+            }});
+            onWindowResize();
+        }
+
+        function createHydraTunelVisual() {
+            clearVisuals();
+            const geometry = new THREE.PlaneGeometry(2, 2);
+            const uniforms = {
+                time: { value: 0 },
+                audioAmplitude: { value: 0.0 },
+                shapeScale: { value: params.shapeScale },
+                colorSpeed: { value: params.colorSpeed },
+                deformationLevel: { value: params.deformationLevel }
+            };
+            const material = new THREE.ShaderMaterial({
+                vertexShader: vertexShaderHydra,
+                fragmentShader: fragmentShaderHydraTunel,
+                uniforms: uniforms,
+                depthWrite: false,
+                depthTest: false,
+                blending: THREE.AdditiveBlending,
+                transparent: true
+            });
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.z = -1;
+            scene.add(mesh);
+            visualObjects.push({ mesh: mesh, update: (delta, audioAmplitude) => {
+                material.uniforms.time.value += delta;
+                material.uniforms.audioAmplitude.value = audioAmplitude;
+                material.uniforms.shapeScale.value = params.shapeScale;
+                material.uniforms.colorSpeed.value = params.colorSpeed;
+                material.uniforms.deformationLevel.value = params.deformationLevel;
+            }});
+            onWindowResize();
+        }
+
+
+        // Changes the visual mode
+        function switchVisualMode(mode) {
+            clearVisuals();
+            currentVisualMode = mode;
+            switch (mode) {
+                case 'spheres': createSpheresVisual(); break;
+                case 'particles': createParticlesVisual(); break;
+                case 'waves': createWavesVisual(); break;
+                case 'cubes': createCubesVisual(); break;
+                case 'audioBars': createAudioBarsVisual(); break;
+                case 'torus': createTorusVisual(); break;
+                case 'torusKnot': createTorusKnotVisual(); break;
+                case 'dodecahedron': createDodecahedronVisual(); break;
+                case 'icosahedron': createIcosahedronVisual(); break;
+                case 'octahedron': createOctahedronVisual(); break;
+                case 'cone': createConeVisual(); break;
+                case 'cylinder': createCylinderVisual(); break;
+                case 'ring': createRingVisual(); break;
+                case 'tetrahedron': createTetrahedronVisual(); break;
+                case 'multiTorus': createMultiTorusVisual(); break;
+                case 'gyroscope1': createGyroscope1Visual(); break;
+                case 'gyroscope2': createGyroscope2Visual(); break;
+                case 'gyroscope3': createGyroscope3Visual(); break;
+                case 'fractalNoise': createFractalNoiseVisual(); break;
+                case 'hydraFuego': createHydraFuegoVisual(); break;
+                case 'hydraGlitch': createHydraGlitchVisual(); break; // NEW HYDRA CASE
+                case 'hydraTunel': createHydraTunelVisual(); break; // NEW HYDRA CASE
+            }
+            visualObjects.forEach(obj => {
+                if (obj.mesh && obj.wireframe && obj.points) {
+                    updateMaterialMode(obj, params.materialMode);
+                }
+            });
+        }
+
+        function createParticleBurst(position, color, scale = 1.0) {
+            const burstGeometry = new THREE.SphereGeometry(0.1, 8, 8);
+            const burstMaterial = new THREE.MeshBasicMaterial({
+                color: color,
+                transparent: true,
+                opacity: 1.0,
+                blending: THREE.AdditiveBlending
+            });
+            const burstParticle = new THREE.Mesh(burstGeometry, burstMaterial);
+            burstParticle.position.copy(position);
+            burstParticle.scale.set(scale, scale, scale);
+            scene.add(burstParticle);
+
+            let opacity = 1.0;
+            let currentScale = scale;
+            const animateBurst = () => {
+                if (opacity > 0) {
+                    opacity -= 0.05;
+                    currentScale += 0.05;
+                    burstParticle.material.opacity = opacity;
+                    burstParticle.scale.set(currentScale, currentScale, currentScale);
+                    requestAnimationFrame(animateBurst);
+                } else {
+                    burstParticle.geometry.dispose();
+                    burstParticle.material.dispose();
+                    scene.remove(burstParticle);
+                }
+            };
+            animateBurst();
+        }
+
+        /**
+         * Clears all background planes (image or camera) to ensure only one is active.
+         */
+        function clearAllBackgroundPlanes() {
+            stopImageCarousel(); // Stop any ongoing image carousel
+            loadedImageTextures.forEach(tex => tex.dispose());
+            loadedImageTextures = [];
+            currentImageIndex = -1;
+
+            stopCameraAsBackground(); // Stop camera if it's active
+
+            if (imagePlane) { // Check if imagePlane exists before accessing its properties
+                if (imagePlane.material.uniforms.backgroundTexture.value) {
+                    imagePlane.material.uniforms.backgroundTexture.value.dispose();
+                }
+                imagePlane.material.uniforms.backgroundTexture.value = null;
+                imagePlane.visible = false;
+            }
+        }
+
+
+        async function setupAudio(deviceId = null) {
+            if (audioContext) {
+                // If audio context exists, try to close it first to reset
+                if (audioContext.state !== 'closed') {
+                    await audioContext.close();
+                }
+            }
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256; // More detail for frequency bands
+                const bufferLength = analyser.frequencyBinCount;
+                dataArray = new Uint8Array(bufferLength);
+
+                const constraints = { audio: { deviceId: deviceId ? { exact: deviceId } : undefined } };
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                microphone = audioContext.createMediaStreamSource(stream);
+                microphone.connect(analyser);
+
+                toggleAudioBtn.textContent = 'desactivar audio';
+                audioDebugInfo.style.display = 'block'; // Show debug info
+                showMessage('¡audio activado! el micrófono está escuchando la onda.');
+
+            } catch (err) {
+                console.error('error al acceder al micrófono:', err);
+                let userMessage = '¡ay, carnal! no pude acceder al micrófono. ';
+                if (err.name === 'NotAllowedError') {
+                    userMessage += 'parece que los permisos fueron denegados por tu navegador. por favor, revisa la configuración de tu navegador para permitir el acceso al micrófono.';
+                } else if (err.name === 'NotFoundError') {
+                    userMessage += 'no se encontró ningún micrófono. asegúrate de que uno esté conectado y funcionando.';
+                } else if (err.message && err.message.includes('Permission denied by system')) {
+                    userMessage += '¡permiso denegado por el sistema! para activar el audio, necesitas ir a la configuración de privacidad y seguridad de tu sistema operativo y navegador para permitir el acceso al micrófono.';
+                } else {
+                    userMessage += `error: ${err.message}. checa los permisos de tu navegador.`;
+                }
+                showMessage(userMessage);
+                toggleAudioBtn.textContent = 'activar audio';
+                if (audioContext && audioContext.state !== 'closed') {
+                    audioContext.close();
+                }
+                audioContext = null;
+                analyser = null;
+                microphone = null;
+                dataArray = null;
+            }
+        }
+
+        function stopAudio() {
+            if (audioContext) {
+                if (microphone && microphone.mediaStream) {
+                    microphone.mediaStream.getTracks().forEach(track => track.stop()); // Explicitly stop tracks
+                }
+                audioContext.close();
+                audioContext = null;
+                analyser = null;
+                microphone = null;
+                dataArray = null;
+                toggleAudioBtn.textContent = 'activar audio';
+                audioDebugInfo.style.display = 'none'; // Hide debug info
+                // showMessage('audio desactivado. ¡silencio total!'); // Removed to prevent message on page change
+            }
+        }
+
+        // --- Load Background Image ---
+        function loadImageAsBackground(event) {
+            const files = event.target.files;
+            if (files.length > 0) {
+                clearAllBackgroundPlanes(); // Clear other backgrounds before activating image
+
+                // Clear existing image textures
+                loadedImageTextures.forEach(tex => tex.dispose());
+                loadedImageTextures = [];
+                currentImageIndex = -1;
+                stopImageCarousel();
+
+                const textureLoader = new THREE.TextureLoader();
+                let loadedCount = 0;
+
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        textureLoader.load(e.target.result, function(texture) {
+                            console.log('background image texture loaded successfully:', texture); // Debugging
+                            loadedImageTextures.push(texture);
+                            loadedCount++;
+
+                            if (loadedCount === files.length) {
+                                showMessage(`¡${loadedCount} imagen(es) de fondo cargada(s) con éxito!`);
+                                currentImageIndex = 0;
+                                updateImagePlaneTexture(loadedImageTextures[currentImageIndex], false); // Not a camera
+                                if (loadedImageTextures.length > 1) {
+                                    startImageCarousel();
+                                }
+                            }
+                        }, undefined, function(err) {
+                            console.error('error loading texture:', err); // Debugging
+                            showMessage('¡ups! hubo un error al cargar una imagen. intenta con otra.');
+                        });
+                    };
+                    reader.readAsDataURL(file);
+                }
+            } else {
+                console.log('no image file selected.'); // Debugging
+            }
+        }
+
+        function updateImagePlaneTexture(texture, isCameraSource) {
+            if (imagePlane) {
+                if (imagePlane.material.uniforms.backgroundTexture.value && imagePlane.material.uniforms.backgroundTexture.value !== texture) {
+                    // Only dispose if it's a different texture
+                    imagePlane.material.uniforms.backgroundTexture.value.dispose();
+                }
+                imagePlane.material.uniforms.backgroundTexture.value = texture;
+                imagePlane.material.uniforms.isCameraActive.value = isCameraSource;
+                isCameraActive = isCameraSource; // Update global flag
+                imagePlane.visible = true;
+                onWindowResize(); // Readjust image size to fill screen
+            }
+        }
+
+        function startImageCarousel() {
+            stopImageCarousel(); // Ensure no multiple intervals are running
+            if (loadedImageTextures.length > 1) {
+                imageChangeInterval = setInterval(() => {
+                    currentImageIndex = (currentImageIndex + 1) % loadedImageTextures.length;
+                    updateImagePlaneTexture(loadedImageTextures[currentImageIndex], false);
+                }, IMAGE_CHANGE_INTERVAL_MS);
+            }
+        }
+
+        function stopImageCarousel() {
+            if (imageChangeInterval) {
+                clearInterval(imageChangeInterval);
+                imageChangeInterval = null;
+            }
+        }
+
+        function clearBackgroundImage() {
+            stopImageCarousel();
+            loadedImageTextures.forEach(tex => tex.dispose());
+            loadedImageTextures = [];
+            currentImageIndex = -1;
+
+            stopCameraAsBackground(); // Ensure camera is also stopped
+
+            if (imagePlane) {
+                if (imagePlane.material.uniforms.backgroundTexture.value) {
+                    imagePlane.material.uniforms.backgroundTexture.value.dispose();
+                }
+                imagePlane.material.uniforms.backgroundTexture.value = null;
+                imagePlane.visible = false;
+            }
+            showMessage('imagen de fondo borrada. ¡campo libre!');
+        }
+
+        // --- Camera as Background Functions ---
+        async function startCameraAsBackground(deviceId) {
+            if (currentCameraStream) {
+                currentCameraStream.getTracks().forEach(track => track.stop());
+                currentCameraStream = null;
+            }
+
+            try {
+                const constraints = {
+                    video: { deviceId: deviceId ? { exact: deviceId } : undefined },
+                    // Do not request audio here, main audio context handles it
+                };
+                currentCameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+                videoFeed.srcObject = currentCameraStream;
+
+                videoFeed.onloadedmetadata = () => {
+                    videoFeed.play().catch(e => console.error("Error playing video:", e)); // Ensure video plays
+                    videoTexture = new THREE.VideoTexture(videoFeed);
+                    videoTexture.minFilter = THREE.LinearFilter;
+                    videoTexture.magFilter = THREE.LinearFilter;
+                    videoTexture.format = THREE.RGBAFormat;
+                    updateImagePlaneTexture(videoTexture, true); // Set as camera texture
+                };
+                showMessage('¡cámara activada como fondo!');
+                startCameraBtn.disabled = true;
+                stopCameraBtn.disabled = false;
+            } catch (err) {
+                console.error('error al iniciar la cámara:', err);
+                let message = '¡falló la cámara! ';
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    message += 'necesitas darle permiso a la cámara en tu navegador.';
+                } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                    message += 'no se encontró la cámara. asegúrate de que esté conectada.';
+                } else {
+                    message += `error: ${err.name} - ${err.message}`;
+                }
+                showMessage(message);
+                cameraSelect.value = ""; // Reset camera select
+                stopCameraAsBackground(); // Ensure state is reset
+            }
+        }
+
+        function stopCameraAsBackground() {
+            if (currentCameraStream) {
+                currentCameraStream.getTracks().forEach(track => track.stop());
+                currentCameraStream = null;
+                videoFeed.srcObject = null;
+                if (videoTexture) {
+                    videoTexture.dispose();
+                    videoTexture = null;
+                }
+                if (imagePlane && imagePlane.material.uniforms.backgroundTexture.value) {
+                    // Only clear the texture if it's the video texture
+                    if (imagePlane.material.uniforms.backgroundTexture.value === videoTexture) {
+                        imagePlane.material.uniforms.backgroundTexture.value = null;
+                    }
+                    imagePlane.material.uniforms.isCameraActive.value = false;
+                    isCameraActive = false;
+                    imagePlane.visible = false; // Hide the plane if no other background is active
+                }
+                showMessage('cámara de fondo detenida.');
+            }
+            startCameraBtn.disabled = false;
+            stopCameraBtn.disabled = true;
+        }
+
+
+        // --- Main Visualizer Animation Loop ---
+        let lastTime = 0;
+        function animateMainVisualizer(time) {
+            const delta = (time - lastTime) * 0.001; // Convert to seconds
+            lastTime = time;
+
+            let averageAmplitude = 0;
+            let normalizedReaction = 0;
+            let bassAmplitude = 0;
+            let midAmplitude = 0;
+            let trebleAmplitude = 0;
+
+            if (analyser && dataArray) {
+                analyser.getByteFrequencyData(dataArray);
+                averageAmplitude = dataArray.reduce((sum, val) => sum + val, 0) / dataArray.length;
+
+                // Divide into frequency bands
+                const bufferLength = analyser.frequencyBinCount;
+                const bassRange = Math.floor(bufferLength * 0.2); // 0-20% for bass
+                const midRange = Math.floor(bufferLength * 0.5);  // 20-70% for mids
+                // The rest for trebles
+
+                for (let i = 0; i < bufferLength; i++) {
+                    if (i < bassRange) {
+                        bassAmplitude += dataArray[i];
+                    } else if (i < midRange) {
+                        midAmplitude += dataArray[i];
+                    } else {
+                        trebleAmplitude += dataArray[i];
+                    }
+                }
+                bassAmplitude /= bassRange;
+                midAmplitude /= (midRange - bassRange);
+                trebleAmplitude /= (bufferLength - midRange);
+
+                // Normalize band amplitudes (0-1) and apply threshold
+                const normalizeBand = (amplitude, sensitivity) => {
+                    if (amplitude > params.audioReactionThreshold) {
+                        let normalized = (amplitude - params.audioReactionThreshold) / (255 - params.audioReactionThreshold);
+                        return Math.max(0, Math.min(1, normalized)) * sensitivity;
+                    }
+                    return 0;
+                };
+
+                const normalizedBass = normalizeBand(bassAmplitude, params.bassSensitivity);
+                const normalizedMid = normalizeBand(midAmplitude, params.midSensitivity);
+                const normalizedTreble = normalizeBand(trebleAmplitude, params.trebleSensitivity);
+
+                normalizedReaction = normalizeBand(averageAmplitude, params.amplitudeSensitivity);
+
+                // Update audio debug info
+                currentAmplitudeSpan.textContent = averageAmplitude.toFixed(0);
+                normalizedReactionSpan.textContent = normalizedReaction.toFixed(2);
+                bassAmplitudeSpan.textContent = normalizedBass.toFixed(2);
+                midAmplitudeSpan.textContent = normalizedMid.toFixed(2);
+                trebleAmplitudeSpan.textContent = trebleAmplitude.toFixed(2); // Keep this for raw treble if needed
+
+
+                switch (currentVisualMode) {
+                    case 'spheres':
+                    case 'waves':
+                    case 'cubes':
+                    case 'torus':
+                    case 'torusKnot':
+                    case 'dodecahedron':
+                    case 'icosahedron':
+                    case 'octahedron':
+                    case 'cone':
+                    case 'cylinder':
+                    case 'ring':
+                    case 'tetrahedron':
+                    case 'multiTorus':
+                    case 'gyroscope1':
+                    case 'gyroscope2':
+                    case 'gyroscope3':
+                        visualObjects.forEach((obj) => {
+                            if (obj.mesh) {
+                                obj.mesh.rotation.x += 0.005 + normalizedReaction * 0.01;
+                                obj.mesh.rotation.y += 0.005 + normalizedReaction * 0.01;
+                                obj.mesh.rotation.z += 0.005 + normalizedReaction * 0.01;
+
+                                if (obj.wireframe) obj.wireframe.rotation.copy(obj.mesh.rotation);
+                                if (obj.points) obj.points.rotation.copy(obj.mesh.rotation);
+
+                                // Bass modifies size
+                                const scale = params.shapeScale * (1 + normalizedBass * 0.8); // Affected by bass
+                                obj.mesh.scale.set(scale, scale, scale);
+                                if (obj.wireframe) obj.wireframe.scale.copy(obj.mesh.scale);
+                                if (obj.points) obj.points.scale.copy(obj.mesh.scale);
+
+                                // Treble modifies deformation (texture)
+                                if (currentVisualMode !== 'torusKnot' && currentVisualMode !== 'audioBars' && obj.mesh.geometry.userData.originalPositions) {
+                                    applyDeformation(obj, normalizedTreble, params.deformationLevel); // Affected by treble
+                                }
+
+                                obj.mesh.material.opacity = params.layerOpacity;
+                                // Mids modify colors
+                                const colorIndex = obj.index + Math.floor(performance.now() * params.colorSpeed * normalizedMid * 5); // Affected by mids
+                                applyMaterialColor(obj.mesh.material, colorIndex);
+                            }
+
+                            if (obj.wireframe) {
+                                obj.wireframe.material.opacity = params.layerOpacity;
+                                const colorIndex = obj.index + Math.floor(performance.now() * params.colorSpeed * normalizedMid * 5);
+                                applyMaterialColor(obj.wireframe.material, colorIndex);
+                            }
+                            if (obj.points) {
+                                obj.points.material.opacity = params.layerOpacity;
+                                const colorIndex = obj.index + Math.floor(performance.now() * params.colorSpeed * normalizedMid * 5);
+                                applyMaterialColor(obj.points.material, colorIndex);
+                                // Treble also modifies point size
+                                obj.points.material.size = 0.1 + normalizedTreble * params.amplitudeSensitivity * 0.5;
+                            }
+                        });
+                        break;
+                    case 'particles':
+                        const particles = visualObjects[0].points;
+                        if (particles) {
+                            const positions = particles.geometry.attributes.position.array;
+                            const colors = particles.geometry.attributes.color.array;
+                            const originalPositions = particles.userData.originalPositions;
+                            const colorTemp = new THREE.Color();
+
+                            for (let i = 0; i < particles.geometry.attributes.position.count; i++) {
+                                // Bass modifies particle movement amplitude
+                                positions[i * 3 + 1] = originalPositions[i * 3 + 1] +
+                                                        (Math.sin(performance.now() * 0.002 + i / 100) * normalizedBass * 5) * params.shapeScale * params.deformationLevel;
+
+                                // Mids modify colors
+                                const colorIndex = i + Math.floor(performance.now() * params.colorSpeed * normalizedMid * 5);
+                                colorTemp.copy(getCustomColor(colorIndex));
+                                colors[i * 3] = colorTemp.r;
+                                colors[i * 3 + 1] = colorTemp.g;
+                                colors[i * 3 + 2] = colorTemp.b;
+                            }
+                            particles.geometry.attributes.position.needsUpdate = true;
+                            particles.geometry.attributes.color.needsUpdate = true;
+                            particles.material.opacity = params.layerOpacity;
+                            // Treble modifies particle size
+                            particles.material.size = 0.1 + normalizedTreble * params.amplitudeSensitivity * 0.5;
+                        }
+                        break;
+                    case 'audioBars':
+                        if (dataArray && visualObjects.length > 0) {
+                            const numBars = visualObjects.length;
+                            for (let i = 0; i < numBars; i++) {
+                                const bar = visualObjects[i].mesh;
+                                // Bass modifies base height, Treble modifies reaction
+                                const barHeight = (dataArray[i] / 255 * 5 * params.amplitudeSensitivity * params.shapeScale) * (1 + normalizedBass * 0.5) + normalizedTreble * 2;
+                                bar.scale.y = barHeight;
+                                bar.position.y = -2 + barHeight / 2;
+                                // Mids modify colors
+                                const colorIndex = i + Math.floor(performance.now() * params.colorSpeed * normalizedMid * 5);
+                                applyMaterialColor(bar.material, colorIndex);
+                                bar.material.opacity = params.layerOpacity;
+                            }
+                        }
+                        break;
+                    case 'fractalNoise': // Update uniforms for Fractal Noise shader
+                    case 'hydraFuego':
+                    case 'hydraGlitch':
+                    case 'hydraTunel':
+                        const shaderMesh = visualObjects[0];
+                        if (shaderMesh && shaderMesh.update) {
+                            shaderMesh.update(delta, normalizedReaction); // Pass delta and audio amplitude
+                        }
+                        break;
+                }
+
+                if (normalizedReaction > 0.9 && visualObjects.length > 0) { // Use normalizedReaction for the burst
+                    const burstColor = getCustomColor(Math.floor(Math.random() * params.customColors.length));
+                    createParticleBurst(new THREE.Vector3(0, 0, 0), burstColor, normalizedReaction * 2);
+                }
+            }
+
+            // Update background textures and uniforms
+            if (imagePlane && imagePlane.visible && imagePlane.material.uniforms.backgroundTexture.value) {
+                // If camera is active, use camera params. Otherwise, general image params.
+                imagePlane.material.uniforms.isCameraActive.value = isCameraActive;
+                imagePlane.material.uniforms.chromaKeyColor.value.set(params.chromaKeyColor);
+                imagePlane.material.uniforms.chromaKeyThreshold.value = params.chromaKeyThreshold;
+
+                // Apply camera specific filter params if camera is active, otherwise default to none for images
+                imagePlane.material.uniforms.backgroundFilterMode.value = isCameraActive ? params.cameraFilterMode : 0; // Only camera has filters
+                imagePlane.material.uniforms.backgroundNoiseAmount.value = isCameraActive ? params.cameraNoiseAmount : 0;
+                imagePlane.material.uniforms.backgroundEdgeSensitivity.value = isCameraActive ? params.cameraEdgeSensitivity : 0;
+                imagePlane.material.uniforms.backgroundBrightness.value = isCameraActive ? params.cameraBrightness : 0;
+                imagePlane.material.uniforms.backgroundContrast.value = isCameraActive ? params.cameraContrast : 1;
+                imagePlane.material.uniforms.backgroundPixelateSize.value = isCameraActive ? params.cameraPixelateSize : 1;
+                imagePlane.material.uniforms.backgroundBlurAmount.value = isCameraActive ? params.cameraBlurAmount : 0;
+                imagePlane.material.uniforms.backgroundMaterialColor.value.copy(isCameraActive ? params.cameraMaterialColor : backgroundMaterialColors.none);
+
+                // NEW IMAGE EFFECT UNIFORM UPDATES
+                imagePlane.material.uniforms.uHueRotate.value = params.hueRotate * Math.PI / 180.0;
+                imagePlane.material.uniforms.uSaturation.value = params.saturation / 100.0;
+                imagePlane.material.uniforms.uVignette.value = params.vignette / 100.0;
+                imagePlane.material.uniforms.uPosterizeLevels.value = params.posterize;
+                imagePlane.material.uniforms.uSharpenAmount.value = params.sharpen;
+                imagePlane.material.uniforms.uScanlineDensity.value = params.scanline / 100.0;
+
+
+                imagePlane.material.uniforms.audioVolume.value = normalizedReaction; // Use main audio for camera effects
+                imagePlane.material.uniforms.time.value = performance.now() * 0.001;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // --- MIDI Functions ---
+        async function initMidi() {
+            if (!navigator.requestMIDIAccess) {
+                showMessage('¡híjole! tu navegador no soporta la api web midi o está deshabilitada por la política de permisos de tu navegador o sistema. no podrás usar controles midi.');
+                // Disable MIDI related UI
+                midiInputSelect.disabled = true;
+                midiOutputSelect.disabled = true;
+                midiChannelInput.disabled = true;
+                startMidiLearnBtn.disabled = true;
+                stopMidiLearnBtn.disabled = true;
+                clearMidiMappingsBtn.disabled = true;
+                midiMonitor.textContent = 'la api web midi no está disponible o está bloqueada.';
+                return;
+            }
+
+            try {
+                midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+                midiAccess.onstatechange = onMidiStateChange;
+                updateMidiDevices();
+            } catch (err) {
+                console.error('error al acceder a midi:', err);
+                showMessage('¡ay, carnal! no pude acceder a midi. esto suele pasar si los permisos están denegados por tu navegador o sistema operativo. revisa la configuración de permisos de midi.');
+                // Disable MIDI related UI on permission error
+                midiInputSelect.disabled = true;
+                midiOutputSelect.disabled = true;
+                midiChannelInput.disabled = true;
+                startMidiLearnBtn.disabled = true;
+                stopMidiLearnBtn.disabled = true;
+                clearMidiMappingsBtn.disabled = true;
+                midiMonitor.textContent = 'acceso a midi denegado. revisa los permisos.';
+            }
+        }
+
+        function onMidiStateChange(event) {
+            console.log(`midi device state change: ${event.port.name} ${event.port.state}`);
+            updateMidiDevices();
+        }
+
+        function updateMidiDevices() {
+            midiInputs = midiAccess.inputs;
+            midiOutputs = midiAccess.outputs;
+
+            midiInputSelect.innerHTML = '<option value="">-- selecciona entrada --</option>';
+            midiInputs.forEach(input => {
+                const option = document.createElement('option');
+                option.value = input.id;
+                option.textContent = input.name;
+                midiInputSelect.appendChild(option);
+            });
+
+            midiOutputSelect.innerHTML = '<option value="">-- selecciona salida --</option>';
+            midiOutputs.forEach(output => {
+                const option = document.createElement('option');
+                option.value = output.id;
+                option.textContent = output.name;
+                midiOutputSelect.appendChild(option);
+            });
+
+            // Re-select previously selected input if it still exists
+            if (selectedMidiInput && midiInputs.has(selectedMidiInput.id)) {
+                midiInputSelect.value = selectedMidiInput.id;
+            } else {
+                selectedMidiInput = null;
+            }
+        }
+
+        function onMidiMessage(event) {
+            const data = event.data; // [status, data1, data2]
+            const status = data[0];
+            const type = status & 0xF0; // Message type (e.g., Note On, CC)
+            const channel = (status & 0x0F) + 1; // MIDI channel (1-16)
+            const data1 = data[1]; // Note number or CC number
+            const data2 = data[2]; // Velocity or CC value
+
+            const midiMessageString = `status: ${status.toString(16)}, type: ${type.toString(16)}, channel: ${channel}, data1: ${data1}, data2: ${data2}`;
+            midiMonitor.textContent += midiMessageString + '\n';
+            midiMonitor.scrollTop = midiMonitor.scrollHeight; // Scroll to bottom
+
+            // If in MIDI learn mode
+            if (isLearningMidi && learnTargetElement && channel === selectedMidiChannel) {
+                let midiTypeString = '';
+                let targetProperty = learnTargetElement.dataset.midiTarget;
+                let minVal, maxVal, step;
+
+                // Determine MIDI type and get target properties
+                if (type === 0x90) { // Note On
+                    midiTypeString = 'note on';
+                    // For buttons, a Note On triggers it
+                    // For sliders, note velocity can control it
+                    if (learnTargetElement.tagName === 'BUTTON' || learnTargetElement.type === 'checkbox') {
+                        // For buttons/checkboxes, we just need the note number and channel
+                        minVal = 0; maxVal = 1; step = 1; // Binary state
+                    } else if (learnTargetElement.type === 'range') {
+                        minVal = parseFloat(learnTargetElement.min);
+                        maxVal = parseFloat(learnTargetElement.max);
+                        step = parseFloat(learnTargetElement.step);
+                    } else if (learnTargetElement.tagName === 'SELECT') {
+                        minVal = 0; maxVal = learnTargetElement.options.length - 1; step = 1;
+                    } else if (learnTargetElement.type === 'color') { // Handle color inputs
+                        minVal = 0; maxVal = 255; step = 1; // Map 0-127 MIDI to 0-255 color component
+                    }
+                } else if (type === 0x80) { // Note Off (can also be used for buttons)
+                    midiTypeString = 'note off';
+                    if (learnTargetElement.tagName === 'BUTTON' || learnTargetElement.type === 'checkbox') {
+                        minVal = 0; maxVal = 1; step = 1;
+                    }
+                } else if (type === 0xB0) { // Control Change (CC)
+                    midiTypeString = 'control change';
+                    if (learnTargetElement.type === 'range') {
+                        minVal = parseFloat(learnTargetElement.min);
+                        maxVal = parseFloat(learnTargetElement.max);
+                        step = parseFloat(learnTargetElement.step);
+                    } else if (targetElement.tagName === 'SELECT') {
+                        minVal = 0; maxVal = learnTargetElement.options.length - 1; step = 1;
+                    } else if (targetElement.tagName === 'BUTTON' || targetElement.type === 'checkbox') {
+                        minVal = 0; maxVal = 1; step = 1;
+                    } else if (targetElement.type === 'color') { // Handle color inputs
+                        minVal = 0; maxVal = 255; step = 1; // Map 0-127 MIDI to 0-255 color component
+                    }
+                } else {
+                    // Ignore other MIDI messages for learning for now
+                    return;
+                }
+
+                const newMapping = {
+                    midiType: midiTypeString,
+                    midiChannel: channel,
+                    midiNumber: data1,
+                    targetElementId: learnTargetElement.id,
+                    targetProperty: targetProperty,
+                    minVal: minVal,
+                    maxVal: maxVal,
+                    step: step,
+                    elementTag: learnTargetElement.tagName,
+                    elementType: learnTargetElement.type
+                };
+
+                // Check for duplicate mapping (same MIDI message to same control)
+                const existingIndex = midiMappings.findIndex(m =>
+                    m.midiType === newMapping.midiType &&
+                    m.midiChannel === newMapping.midiChannel &&
+                    m.midiNumber === newMapping.midiNumber &&
+                    m.targetElementId === newMapping.targetElementId
+                );
+
+                if (existingIndex !== -1) {
+                    midiMappings[existingIndex] = newMapping; // Update existing
+                    showMessage(`¡mapeo actualizado para ${learnTargetElement.id}!`);
+                } else {
+                    midiMappings.push(newMapping); // Add new
+                    showMessage(`¡mapeo creado: ${learnTargetElement.id} con midi ${midiTypeString} ${data1} en canal ${channel}!`);
+                }
+
+                stopMidiLearn(); // Stop learning after one mapping
+                renderMidiMappings(); // Update the table
+                return; // Don't apply the message yet, it was for learning
+            }
+
+            // Apply MIDI messages to mapped controls
+            midiMappings.forEach(mapping => {
+                if (mapping.midiChannel === channel && mapping.midiNumber === data1) {
+                    const targetElement = document.getElementById(mapping.targetElementId);
+                    if (!targetElement) return;
+
+                    if (mapping.midiType === 'control change' && type === 0xB0) {
+                        const normalizedValue = data2 / 127; // MIDI CC values are 0-127
+                        const mappedValue = mapping.minVal + (normalizedValue * (mapping.maxVal - mapping.minVal));
+
+                        if (targetElement.type === 'range') {
+                            targetElement.value = mappedValue;
+                            targetElement.dispatchEvent(new Event('input')); // Trigger input event
+                        } else if (targetElement.tagName === 'SELECT') {
+                            const optionIndex = Math.round(normalizedValue * (mapping.maxVal - mapping.minVal));
+                            targetElement.value = targetElement.options[optionIndex].value;
+                            targetElement.dispatchEvent(new Event('change')); // Trigger change event
+                        } else if (targetElement.type === 'color') {
+                            // Map MIDI CC (0-127) to a color component (0-255)
+                            const colorValue = Math.round(normalizedValue * 255);
+                            let currentColor = new THREE.Color(targetElement.value);
+                            // Decide which component to map. For simplicity, let's map to Red for now.
+                            // A more complex mapping would involve multiple CCs for R, G, B, or HSL.
+                            currentColor.r = colorValue / 255; // Update red component
+                            targetElement.value = '#' + currentColor.getHexString();
+                            targetElement.dispatchEvent(new Event('input'));
+                        }
+                    } else if (mapping.midiType === 'note on' && type === 0x90 && data2 > 0) { // Note On with velocity > 0
+                        if (targetElement.tagName === 'BUTTON') {
+                            targetElement.click(); // Simulate click
+                        } else if (targetElement.type === 'checkbox') {
+                            targetElement.checked = !targetElement.checked;
+                            targetElement.dispatchEvent(new Event('change'));
+                        } else if (targetElement.type === 'range') {
+                            // Map note velocity to slider value
+                            const normalizedValue = data2 / 127;
+                            const mappedValue = mapping.minVal + (normalizedValue * (mapping.maxVal - mapping.minVal));
+                            targetElement.value = mappedValue;
+                            targetElement.dispatchEvent(new Event('input'));
+                        } else if (targetElement.type === 'color') {
+                            // Map note velocity to a color component
+                            const colorValue = Math.round(data2 / 127 * 255);
+                            let currentColor = new THREE.Color(targetElement.value);
+                            currentColor.g = colorValue / 255; // Update green component
+                            targetElement.value = '#' + currentColor.getHexString();
+                            targetElement.dispatchEvent(new Event('input'));
+                        }
+                        // Piano roll reactivity: Example - note number affects color speed
+                        // This is a basic example. For "cada dos octavas", you'd need more complex logic.
+                        // For instance, notes 60-71 (C4-B4) affect color speed, 72-83 (C5-B5) affect shape scale.
+                        const noteNumber = data1;
+                        const velocity = data2;
+                        if (noteNumber >= 60 && noteNumber <= 71) { // C4 to B4
+                            params.colorSpeed = 0.01 + (velocity / 127) * 0.49; // Map velocity to color speed range
+                        } else if (noteNumber >= 72 && noteNumber <= 83) { // C5 to B5
+                            params.shapeScale = 0.1 + (velocity / 127) * 1.9; // Map velocity to shape scale range
+                        }
+                    } else if (mapping.midiType === 'note off' && type === 0x80) { // Note Off
+                        // For buttons/checkboxes, you might want to toggle back or reset
+                        if (targetElement.type === 'checkbox') {
+                            targetElement.checked = !targetElement.checked; // Toggle back on note off
+                            targetElement.dispatchEvent(new Event('change'));
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderMidiMappings() {
+            midiMappingsTableBody.innerHTML = '';
+            // Limit to 16 visible mappings in the table, even if more are stored
+            const displayMappings = midiMappings.slice(0, 16);
+
+            displayMappings.forEach((mapping, index) => {
+                const row = midiMappingsTableBody.insertRow();
+                row.insertCell().textContent = mapping.midiType;
+                row.insertCell().textContent = mapping.midiChannel;
+                row.insertCell().textContent = mapping.midiNumber;
+                row.insertCell().textContent = mapping.targetElementId;
+                const actionCell = row.insertCell();
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'borrar';
+                deleteBtn.className = 'btn'; // Apply existing button style
+                deleteBtn.onclick = () => {
+                    // Delete by index in the original array, not in displayMappings
+                    midiMappings.splice(midiMappings.indexOf(mapping), 1);
+                    renderMidiMappings();
+                    showMessage('mapeo borrado.');
+                };
+                actionCell.appendChild(deleteBtn);
+            });
+
+            // If there are more than 16 mappings, add a row indicating this
+            if (midiMappings.length > 16) {
+                const row = midiMappingsTableBody.insertRow();
+                const cell = row.insertCell();
+                cell.colSpan = 5;
+                cell.textContent = `... y ${midiMappings.length - 16} mapeos más (muestra limitada a 16)`;
+                cell.style.textAlign = 'center';
+                cell.style.fontStyle = 'italic';
+                cell.style.color = '#a0aec0';
+            }
+        }
+
+        function startMidiLearn() {
+            isLearningMidi = true;
+            midiLearnStatus.textContent = '¡modo de aprendizaje activado! haz clic en un control visual para mapearlo.';
+            midiLearnStatus.classList.add('active');
+            startMidiLearnBtn.style.display = 'none';
+            stopMidiLearnBtn.style.display = 'block';
+            document.body.classList.add('learn-mode-active'); // Add class to body for visual feedback
+
+            // Add click listener to all mappable controls
+            mappableControls.forEach(control => {
+                // Ensure no duplicate listeners if startMidiLearn is called multiple times without stop
+                control.removeEventListener('click', handleMappableControlClick);
+                control.addEventListener('click', handleMappableControlClick, { once: true }); // Only listen once
+            });
+        }
+
+        function handleMappableControlClick(event) {
+            if (isLearningMidi) {
+                learnTargetElement = event.currentTarget;
+                midiLearnStatus.textContent = `control seleccionado: "${learnTargetElement.id}". ahora envía un mensaje midi desde tu controlador.`;
+                // Remove click listeners from other controls to avoid multiple targets
+                mappableControls.forEach(control => {
+                    if (control !== learnTargetElement) {
+                        control.removeEventListener('click', handleMappableControlClick);
+                    }
+                });
+            }
+        }
+
+        function stopMidiLearn() {
+            isLearningMidi = false;
+            learnTargetElement = null;
+            midiLearnStatus.textContent = '';
+            midiLearnStatus.classList.remove('active');
+            startMidiLearnBtn.style.display = 'block';
+            stopMidiLearnBtn.style.display = 'none';
+            document.body.classList.remove('learn-mode-active'); // Remove class from body
+
+            // Remove all temporary click listeners
+            mappableControls.forEach(control => {
+                control.removeEventListener('click', handleMappableControlClick);
+            });
+        }
+
+        function clearAllMidiMappings() {
+            midiMappings = [];
+            renderMidiMappings();
+            showMessage('¡todos los mapeos midi borrados!');
+        }
+
+        // Function to enumerate media devices (audio input, video input)
+        async function enumerateMediaDevices() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+                showMessage('¡híjole! tu navegador no soporta la enumeración de dispositivos multimedia (micrófono/cámara) o está deshabilitada por la política de permisos. no podrás seleccionar dispositivos de entrada.');
+                // Disable relevant UI
+                audioInputSelect.disabled = true;
+                cameraSelect.disabled = true;
+                return;
+            }
+
+            try {
+                // Request permissions for audio to ensure enumeration works
+                await navigator.mediaDevices.getUserMedia({ audio: true, video: true }); // Request both for full enumeration
+
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                audioInputSelect.innerHTML = '<option value="">-- selecciona entrada de audio --</option>';
+                cameraSelect.innerHTML = '<option value="">-- selecciona cámara --</option>';
+
+                devices.forEach(device => {
+                    if (device.kind === 'audioinput') {
+                        const option = document.createElement('option');
+                        option.value = device.deviceId;
+                        option.textContent = device.label || `micrófono ${audioInputSelect.options.length + 1}`;
+                        audioInputSelect.appendChild(option);
+                    } else if (device.kind === 'videoinput') {
+                        const option = document.createElement('option');
+                        option.value = device.deviceId;
+                        option.textContent = device.label || `cámara ${cameraSelect.options.length + 1}`;
+                        cameraSelect.appendChild(option);
+                    }
+                });
+            } catch (err) {
+                console.error('error al enumerar dispositivos multimedia:', err);
+                showMessage('¡híjole! no pude enumerar los dispositivos de audio/cámara. esto suele pasar si los permisos están denegados por tu navegador o sistema operativo. revisa la configuración de permisos.');
+                // Disable relevant UI on permission error
+                audioInputSelect.disabled = true;
+                cameraSelect.disabled = true;
+                toggleAudioBtn.disabled = true;
+                startCameraBtn.disabled = true;
+                stopCameraBtn.disabled = true;
+            }
+        }
+
+
+        // --- Event Listeners for Main Visualizer ---
+        visualModeSelect.addEventListener('change', (e) => switchVisualMode(e.target.value));
+        colorSpeedSlider.addEventListener('input', (e) => params.colorSpeed = parseFloat(e.target.value));
+        amplitudeSensitivitySlider.addEventListener('input', (e) => params.amplitudeSensitivity = parseFloat(e.target.value));
+        audioReactionThresholdSlider.addEventListener('input', (e) => params.audioReactionThreshold = parseInt(e.target.value));
+        bassSensitivitySlider.addEventListener('input', (e) => params.bassSensitivity = parseFloat(e.target.value));
+        midSensitivitySlider.addEventListener('input', (e) => params.midSensitivity = parseFloat(e.target.value));
+        trebleSensitivitySlider.addEventListener('input', (e) => params.trebleSensitivity = parseFloat(e.target.value));
+        layerOpacitySlider.addEventListener('input', (e) => params.layerOpacity = parseFloat(e.target.value));
+        shapeScaleSlider.addEventListener('input', (e) => params.shapeScale = parseFloat(e.target.value));
+        deformationLevelSlider.addEventListener('input', (e) => params.deformationLevel = parseFloat(e.target.value));
+        materialModeSlider.addEventListener('input', (e) => {
+            params.materialMode = parseInt(e.target.value);
+            visualObjects.forEach(obj => {
+                // Only update material mode for non-shader based visuals
+                if (obj.mesh && obj.wireframe && obj.points) {
+                    updateMaterialMode(obj, params.materialMode);
+                }
+            });
+        });
+
+        // Event Listeners for general background image/camera controls
+        chromaKeyColorInput.addEventListener('input', (e) => {
+            params.chromaKeyColor = e.target.value;
+            // No need to update imagePlane uniforms here, it's done in animate loop
+        });
+        chromaKeyThresholdSlider.addEventListener('input', (e) => {
+            params.chromaKeyThreshold = parseFloat(e.target.value);
+            // No need to update imagePlane uniforms here, it's done in animate loop
+        });
+        backgroundScaleSlider.addEventListener('input', (e) => {
+            params.backgroundScaleFactor = parseFloat(e.target.value);
+            onWindowResize(); // Readjust image size
+        });
+
+        // NEW IMAGE EFFECT SLIDERS EVENT LISTENERS
+        hueRotateSlider.addEventListener('input', (e) => {
+            params.hueRotate = parseFloat(e.target.value);
+        });
+        saturationSlider.addEventListener('input', (e) => {
+            params.saturation = parseFloat(e.target.value);
+        });
+        vignetteSlider.addEventListener('input', (e) => {
+            params.vignette = parseFloat(e.target.value);
+        });
+        posterizeSlider.addEventListener('input', (e) => {
+            params.posterize = parseFloat(e.target.value);
+        });
+        sharpenSlider.addEventListener('input', (e) => {
+            params.sharpen = parseFloat(e.target.value);
+        });
+        scanlineSlider.addEventListener('input', (e) => {
+            params.scanline = parseFloat(e.target.value);
+        });
+
+        // Camera specific controls
+        startCameraBtn.addEventListener('click', () => {
+            const deviceId = cameraSelect.value;
+            if (deviceId) {
+                startCameraAsBackground(deviceId);
+            } else {
+                showMessage('¡Selecciona una cámara primero, carnal!');
+            }
+        });
+        stopCameraBtn.addEventListener('click', stopCameraAsBackground);
+
+        cameraFilterModeSelect.addEventListener('change', (e) => {
+            params.cameraFilterMode = parseInt(e.target.value);
+        });
+        cameraNoiseSlider.addEventListener('input', (e) => {
+            params.cameraNoiseAmount = parseFloat(e.target.value) / 100.0; // Normalize to 0-1
+        });
+        cameraEdgeSensitivitySlider.addEventListener('input', (e) => {
+            params.cameraEdgeSensitivity = parseFloat(e.target.value) / 100.0; // Normalize to 0-1
+        });
+        cameraBrightnessSlider.addEventListener('input', (e) => {
+            params.cameraBrightness = parseFloat(e.target.value) / 100.0; // Normalize to -1 to 1
+        });
+        cameraContrastSlider.addEventListener('input', (e) => {
+            params.cameraContrast = parseFloat(e.target.value) / 50.0; // Map 0-100 to 0.0-2.0 (1.0 is neutral)
+        });
+        cameraPixelateSizeSlider.addEventListener('input', (e) => {
+            params.cameraPixelateSize = parseFloat(e.target.value);
+        });
+        cameraBlurAmountSlider.addEventListener('input', (e) => {
+            params.cameraBlurAmount = parseFloat(e.target.value);
+        });
+        cameraMaterialSelect.addEventListener('change', (e) => {
+            const selected = e.target.value;
+            params.cameraMaterialColor.copy(backgroundMaterialColors[selected]);
+        });
+
+
+        grayscaleToggle.addEventListener('change', (e) => {
+            params.grayscale = e.target.checked;
+            // Update materials for all visual objects
+            visualObjects.forEach((obj) => {
+                if (obj.mesh && obj.mesh.material) {
+                    if (obj.mesh.material.uniforms && obj.mesh.material.uniforms.grayscale) { // For shader materials
+                        obj.mesh.material.uniforms.grayscale.value = params.grayscale;
+                    } else { // For standard materials
+                        applyMaterialColor(obj.mesh.material, obj.index);
+                    }
+                }
+                if (obj.wireframe && obj.wireframe.material) {
+                    applyMaterialColor(obj.wireframe.material, obj.index);
+                }
+                if (obj.points && obj.points.material) {
+                    if (obj.points.geometry.attributes.color) {
+                        const colors = obj.points.geometry.attributes.color.array;
+                        const colorTemp = new THREE.Color();
+                        for (let i = 0; i < obj.points.geometry.attributes.position.count; i++) {
+                            colorTemp.copy(getCustomColor(i));
+                            colors[i * 3] = colorTemp.r;
+                            colors[i * 3 + 1] = colorTemp.g;
+                            colors[i * 3 + 2] = colorTemp.b;
+                        }
+                        obj.points.geometry.attributes.color.needsUpdate = true;
+                    } else {
+                        applyMaterialColor(obj.points.material, obj.index);
+                    }
+                }
+            });
+        });
+
+        colorInputs.forEach((input, index) => {
+            input.addEventListener('input', (e) => {
+                params.customColors[index] = e.target.value;
+                visualObjects.forEach((obj) => {
+                    if (obj.mesh && obj.mesh.material) {
+                        if (obj.mesh.material.uniforms && obj.mesh.material.uniforms.customColor1) { // For shader materials
+                            obj.mesh.material.uniforms[`customColor${index + 1}`].value.set(params.customColors[index]);
+                        } else { // For standard materials
+                            applyMaterialColor(obj.mesh.material, obj.index);
+                        }
+                    }
+                    if (obj.wireframe && obj.wireframe.material) {
+                        applyMaterialColor(obj.wireframe.material, obj.index);
+                    }
+                    if (obj.points && obj.points.material) {
+                        if (obj.points.geometry.attributes.color) {
+                            const colors = obj.points.geometry.attributes.color.array;
+                            const colorTemp = new THREE.Color();
+                            for (let i = 0; i < obj.points.geometry.attributes.position.count; i++) {
+                                colorTemp.copy(getCustomColor(i));
+                                colors[i * 3] = colorTemp.r;
+                                colors[i * 3 + 1] = colorTemp.g;
+                                colors[i * 3 + 2] = colorTemp.b;
+                            }
+                            obj.points.geometry.attributes.color.needsUpdate = true;
+                        } else {
+                            applyMaterialColor(obj.points.material, obj.index);
+                        }
+                    }
+                });
+            });
+        });
+
+
+        toggleAudioBtn.addEventListener('click', () => {
+            if (audioContext && audioContext.state === 'running') {
+                stopAudio();
+            } else {
+                setupAudio(audioInputSelect.value); // Use selected audio input
+            }
+        });
+
+        imageUploadInput.addEventListener('change', loadImageAsBackground);
+        clearImageBtn.addEventListener('click', clearBackgroundImage); // Listener for the clear image button
+
+        fullscreenBtn.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    let errorMessage = '¡híjole! no se pudo activar la pantalla completa.';
+                    if (err.name === 'NotAllowedError') {
+                        errorMessage += ' probablemente tu navegador bloqueó la solicitud. asegúrate de hacer clic en el botón directamente o revisa los permisos.';
+                    } else {
+                        errorMessage += ` error: ${err.message}`;
+                    }
+                    showMessage(errorMessage);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        });
+
+        messageBoxOkBtn.addEventListener('click', () => {
+            messageBox.style.display = 'none';
+        });
+
+        // MIDI Event Listeners
+        midiInputSelect.addEventListener('change', (e) => {
+            if (selectedMidiInput) {
+                selectedMidiInput.onmidimessage = null; // Remove old listener
+            }
+            const inputId = e.target.value;
+            selectedMidiInput = midiInputs.get(inputId);
+            if (selectedMidiInput) {
+                selectedMidiInput.onmidimessage = onMidiMessage; // Set new listener
+                showMessage(`entrada midi seleccionada: ${selectedMidiInput.name}`);
+            } else {
+                showMessage('no se seleccionó ninguna entrada midi.');
+            }
+        });
+
+        midiChannelInput.addEventListener('change', (e) => {
+            selectedMidiChannel = parseInt(e.target.value);
+            if (isNaN(selectedMidiChannel) || selectedMidiChannel < 1 || selectedMidiChannel > 16) {
+                selectedMidiChannel = 1; // Default if invalid
+                e.target.value = 1;
+                showMessage('canal midi inválido. usando canal 1.');
+            }
+            showMessage(`canal midi establecido a: ${selectedMidiChannel}`);
+        });
+
+        startMidiLearnBtn.addEventListener('click', startMidiLearn);
+        stopMidiLearnBtn.addEventListener('click', stopMidiLearn);
+        clearMidiMappingsBtn.addEventListener('click', clearAllMidiMappings);
+
+
+        // Event listeners for new profile buttons
+        jucaProfileBtn.addEventListener('click', () => navigateToPage('jucaPage')); // Swapped order
+        maroProfileBtn.addEventListener('click', () => navigateToPage('maroPage')); // Swapped order
+
+        // Event listeners for all "Back" buttons
+        backButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                const targetPage = e.target.dataset.targetPage;
+                navigateToPage(targetPage);
+            });
+        });
+
+        // Event listener for camera selection (in left sidebar)
+        cameraSelect.addEventListener('change', (event) => {
+            // This select now just chooses the camera, the buttons activate/deactivate it.
+            // No direct action here, but it updates the selected device for startCameraBtn.
+        });
+
+
+        window.onload = function() {
+            initFirebase(); // Initialize Firebase first
+            initThree(); // Initialize main visualizer Three.js
+            switchVisualMode(currentVisualMode); // Set initial visual mode
+            initMidi(); // Initialize MIDI on load
+            enumerateMediaDevices(); // Enumerate media devices on load
+            showMessage('¡qué onda! ¡bienvenido a tu generador de visuales! activa el audio o carga una imagen.');
+
+            // Start the main visualizer animation loop by default
+            renderer.setAnimationLoop(animateMainVisualizer);
+        };
+    </script>
+</body>
+</html>
