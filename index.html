@@ -697,6 +697,9 @@
                     <a href="https://www.facebook.com/juca.noiz.2025" target="_blank" class="social-btn">
                         <i class="fab fa-facebook-f"></i>
                     </a>
+                    <a href="https://github.com/JuCaNoiz" target="_blank" class="social-btn">
+                        <i class="fab fa-github"></i>
+                    </a>
                 </div>
             </div>
 
@@ -967,7 +970,7 @@
 
 
             <div class="footer-container" id="footerContainer">
-                <p class="footer-text">creado por juca noiz. | aural flux®</p>
+                <p class="footer-text">creado por juca noiz, para la banda que le gusta la música y los visuales | aural flux®</p>
                 <div class="profile-buttons">
                     <button id="jucaProfileBtn" class="profile-btn">JuCa Noiz</button>
                     <button id="maroProfileBtn" class="profile-btn">Maro Valdivia</button>
@@ -3003,7 +3006,7 @@
         // --- MIDI Functions ---
         async function initMidi() {
             if (!navigator.requestMIDIAccess) {
-                showMessage('tu navegador no soporta la api web midi o está deshabilitada por la política de permisos de tu navegador o sistema. no podrás usar controles midi.');
+                showMessage('¡híjole! tu navegador no soporta la api web midi o está deshabilitada por la política de permisos de tu navegador o sistema. no podrás usar controles midi.');
                 // Disable MIDI related UI
                 midiInputSelect.disabled = true;
                 midiOutputSelect.disabled = true;
@@ -3021,7 +3024,7 @@
                 updateMidiDevices();
             } catch (err) {
                 console.error('error al acceder a midi:', err);
-                showMessage('no pude acceder a midi. esto suele pasar si los permisos están denegados por tu navegador o sistema operativo. revisa la configuración de permisos de midi.');
+                showMessage('¡ay, carnal! no pude acceder a midi. esto suele pasar si los permisos están denegados por tu navegador o sistema operativo. revisa la configuración de permisos de midi.');
                 // Disable MIDI related UI on permission error
                 midiInputSelect.disabled = true;
                 midiOutputSelect.disabled = true;
@@ -3315,7 +3318,7 @@
         // Function to enumerate media devices (audio input, video input)
         async function enumerateMediaDevices() {
             if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
-                showMessage('tu navegador no soporta la enumeración de dispositivos multimedia (micrófono/cámara) o está deshabilitada por la política de permisos. no podrás seleccionar dispositivos de entrada.');
+                showMessage('¡híjole! tu navegador no soporta la enumeración de dispositivos multimedia (micrófono/cámara) o está deshabilitada por la política de permisos. no podrás seleccionar dispositivos de entrada.');
                 // Disable relevant UI
                 audioInputSelect.disabled = true;
                 cameraSelect.disabled = true;
@@ -3345,7 +3348,7 @@
                 });
             } catch (err) {
                 console.error('error al enumerar dispositivos multimedia:', err);
-                showMessage('no pude enumerar los dispositivos de audio/cámara. esto suele pasar si los permisos están denegados por tu navegador o sistema operativo. revisa la configuración de permisos.');
+                showMessage('¡híjole! no pude enumerar los dispositivos de audio/cámara. esto suele pasar si los permisos están denegados por tu navegador o sistema operativo. revisa la configuración de permisos.');
                 // Disable relevant UI on permission error
                 audioInputSelect.disabled = true;
                 cameraSelect.disabled = true;
@@ -3601,7 +3604,7 @@
             switchVisualMode(currentVisualMode); // Set initial visual mode
             initMidi(); // Initialize MIDI on load
             enumerateMediaDevices(); // Enumerate media devices on load
-            showMessage(¡bienvenido a tu generador de visuales! activa el audio o la camara.');
+            showMessage('¡qué onda! ¡bienvenido a tu generador de visuales! activa el audio o carga una imagen.');
 
             // Start the main visualizer animation loop by default
             renderer.setAnimationLoop(animateMainVisualizer);
